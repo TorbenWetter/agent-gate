@@ -1,0 +1,25 @@
+# agent-gate permission rules
+# Copy to permissions.yaml and customize
+
+# Defaults are evaluated in order — put specific patterns before "*"
+defaults:
+  - pattern: "ha_get_*"
+    action: allow
+  - pattern: "ha_call_service*"
+    action: ask
+  - pattern: "*"
+    action: ask
+
+# Explicit rules — deny always wins over allow/ask regardless of specificity
+rules:
+  - pattern: "ha_call_service(light.*)"
+    action: ask
+    description: "Light control requires approval"
+
+  - pattern: "ha_call_service(lock.*)"
+    action: deny
+    description: "Lock control is always denied"
+
+  - pattern: "ha_fire_event(*)"
+    action: deny
+    description: "Event firing is always denied"
