@@ -197,6 +197,54 @@ class Database:
             await conn.commit()
         return stale
 
+    async def update_pending_result(self, request_id: str, result: str) -> None:
+        """Write a JSON result string to the result column of a pending request."""
+        conn = self._get_conn()
+        await conn.execute(
+            "UPDATE pending_requests SET result = ? WHERE request_id = ?",
+            (result, request_id),
+        )
+        await conn.commit()
+
+    async def get_completed_results(self) -> list[dict[str, Any]]:
+        """Return pending_requests rows where result IS NOT NULL."""
+        conn = self._get_conn()
+        cursor = await conn.execute("SELECT * FROM pending_requests WHERE result IS NOT NULL")
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    async def delete_completed_results(self, request_ids: list[str]) -> None:
+        """Delete pending_requests by request_id list."""
+        if not request_ids:
+            return
+        conn = self._get_conn()
+        placeholders = ",".join("?" for _ in request_ids)
+        await conn.execute(
+            f"DELETE FROM pending_requests WHERE request_id IN ({placeholders})",
+            request_ids,
+        )
+        await conn.commit()
+
+    async def update_audit_resolution(
+        self,
+        request_id: str,
+        resolution: str,
+        resolved_by: str,
+        resolved_at: float,
+        execution_result: dict[str, Any] | None = None,
+    ) -> None:
+        """Update an existing audit entry with resolution details."""
+        conn = self._get_conn()
+        resolved_at_iso = _epoch_to_iso(resolved_at)
+        result_json = json.dumps(execution_result) if execution_result else None
+        await conn.execute(
+            """UPDATE audit_log
+               SET resolution = ?, resolved_by = ?, resolved_at = ?, execution_result = ?
+               WHERE request_id = ?""",
+            (resolution, resolved_by, resolved_at_iso, result_json, request_id),
+        )
+        await conn.commit()
+
     async def close(self) -> None:
         """Close the persistent connection."""
         if self._conn is not None:

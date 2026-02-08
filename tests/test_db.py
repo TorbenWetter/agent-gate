@@ -1,5 +1,6 @@
 """Tests for agent_gate.db — SQLite storage for audit log and pending requests."""
 
+import json
 import os
 import platform
 import stat
@@ -193,3 +194,148 @@ class TestPendingRequests:
         await db.insert_pending("req-1", "test", {}, "test", future)
         stale = await db.cleanup_stale_requests()
         assert stale == []
+
+
+class TestUpdatePendingResult:
+    async def test_stores_result_json(self, db):
+        """update_pending_result writes JSON to the result column."""
+        expires = "2099-01-01T00:00:00Z"
+        await db.insert_pending(
+            "req-1", "ha_get_state", {"entity_id": "sensor.temp"}, "sig", expires
+        )
+
+        result = {"status": "executed", "data": {"state": "on"}}
+        await db.update_pending_result("req-1", json.dumps(result))
+
+        row = await db.get_pending("req-1")
+        assert row is not None
+        assert row["result"] is not None
+        parsed = json.loads(row["result"])
+        assert parsed["status"] == "executed"
+        assert parsed["data"]["state"] == "on"
+
+    async def test_update_nonexistent_request_is_noop(self, db):
+        """update_pending_result on missing request_id does not raise."""
+        await db.update_pending_result("nonexistent", '{"status": "ok"}')
+        # No error raised, no row to verify
+
+
+class TestGetCompletedResults:
+    async def test_returns_rows_with_result(self, db):
+        """get_completed_results returns pending_requests where result IS NOT NULL."""
+        expires = "2099-01-01T00:00:00Z"
+        await db.insert_pending("req-1", "tool_a", {}, "sig_a", expires)
+        await db.insert_pending("req-2", "tool_b", {}, "sig_b", expires)
+
+        # Only req-1 has a result
+        await db.update_pending_result("req-1", '{"status": "executed"}')
+
+        completed = await db.get_completed_results()
+        assert len(completed) == 1
+        assert completed[0]["request_id"] == "req-1"
+        assert completed[0]["result"] is not None
+
+    async def test_returns_empty_when_no_results(self, db):
+        """get_completed_results returns empty list when no results stored."""
+        expires = "2099-01-01T00:00:00Z"
+        await db.insert_pending("req-1", "tool_a", {}, "sig_a", expires)
+
+        completed = await db.get_completed_results()
+        assert completed == []
+
+    async def test_returns_empty_when_no_pending(self, db):
+        """get_completed_results returns empty list when no pending requests."""
+        completed = await db.get_completed_results()
+        assert completed == []
+
+
+class TestDeleteCompletedResults:
+    async def test_deletes_specified_request_ids(self, db):
+        """delete_completed_results removes rows by request_id."""
+        expires = "2099-01-01T00:00:00Z"
+        await db.insert_pending("req-1", "tool_a", {}, "sig_a", expires)
+        await db.insert_pending("req-2", "tool_b", {}, "sig_b", expires)
+        await db.update_pending_result("req-1", '{"status": "ok"}')
+        await db.update_pending_result("req-2", '{"status": "ok"}')
+
+        await db.delete_completed_results(["req-1"])
+
+        # req-1 deleted, req-2 remains
+        assert await db.get_pending("req-1") is None
+        assert await db.get_pending("req-2") is not None
+
+    async def test_deletes_multiple_ids(self, db):
+        """delete_completed_results can delete multiple IDs at once."""
+        expires = "2099-01-01T00:00:00Z"
+        await db.insert_pending("req-1", "tool_a", {}, "sig_a", expires)
+        await db.insert_pending("req-2", "tool_b", {}, "sig_b", expires)
+
+        await db.delete_completed_results(["req-1", "req-2"])
+
+        assert await db.get_pending("req-1") is None
+        assert await db.get_pending("req-2") is None
+
+    async def test_empty_list_is_noop(self, db):
+        """delete_completed_results with empty list does not raise."""
+        await db.delete_completed_results([])
+
+
+class TestUpdateAuditResolution:
+    async def test_updates_resolution_fields(self, db):
+        """update_audit_resolution sets resolution, resolved_by, resolved_at, execution_result."""
+        entry = AuditEntry(
+            request_id="req-1",
+            tool_name="ha_call_service",
+            decision="ask",
+        )
+        await db.log_audit(entry)
+
+        now = time.time()
+        exec_result = {"state": "on"}
+        await db.update_audit_resolution(
+            request_id="req-1",
+            resolution="approved",
+            resolved_by="12345",
+            resolved_at=now,
+            execution_result=exec_result,
+        )
+
+        entries = await db.get_audit_log()
+        assert len(entries) == 1
+        assert entries[0].resolution == "approved"
+        assert entries[0].resolved_by == "12345"
+        assert entries[0].resolved_at is not None
+        assert abs(entries[0].resolved_at - now) < 1.0
+        assert entries[0].execution_result == exec_result
+
+    async def test_updates_without_execution_result(self, db):
+        """update_audit_resolution works when execution_result is None (e.g. deny)."""
+        entry = AuditEntry(
+            request_id="req-1",
+            tool_name="ha_call_service",
+            decision="ask",
+        )
+        await db.log_audit(entry)
+
+        now = time.time()
+        await db.update_audit_resolution(
+            request_id="req-1",
+            resolution="denied",
+            resolved_by="67890",
+            resolved_at=now,
+            execution_result=None,
+        )
+
+        entries = await db.get_audit_log()
+        assert entries[0].resolution == "denied"
+        assert entries[0].resolved_by == "67890"
+        assert entries[0].execution_result is None
+
+    async def test_nonexistent_request_is_noop(self, db):
+        """update_audit_resolution on non-existent request_id does not raise."""
+        await db.update_audit_resolution(
+            request_id="nonexistent",
+            resolution="approved",
+            resolved_by="12345",
+            resolved_at=time.time(),
+        )
