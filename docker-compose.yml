@@ -1,0 +1,12 @@
+services:
+  agent-gate:
+    build: .
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./permissions.yaml:/app/permissions.yaml:ro
+      - ./data:/app/data
+      - ./certs:/app/certs:ro
+    env_file: .env
+    restart: unless-stopped
