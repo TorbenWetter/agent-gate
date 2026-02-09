@@ -39,6 +39,11 @@ def substitute_env_vars(obj: Any) -> Any:
     return obj
 
 
+def substitute_env_vars_in_text(text: str) -> str:
+    """Substitute ${VAR} in raw text before YAML parsing."""
+    return _ENV_VAR_RE.sub(_replacer, text)
+
+
 # --- Config dataclasses ---
 
 
@@ -208,9 +213,7 @@ def load_config(path: str = "config.yaml") -> Config:
         raise ConfigError(f"Config file not found: {path}")
 
     with open(p) as f:
-        raw = yaml.safe_load(f)
-
-    raw = substitute_env_vars(raw)
+        raw = yaml.safe_load(substitute_env_vars_in_text(f.read()))
 
     # Gateway
     gw_raw = _require(raw, "gateway", "")
@@ -371,9 +374,7 @@ def load_permissions(path: str = "permissions.yaml") -> Permissions:
         raise ConfigError(f"Permissions file not found: {path}")
 
     with open(p) as f:
-        raw = yaml.safe_load(f)
-
-    raw = substitute_env_vars(raw)
+        raw = yaml.safe_load(substitute_env_vars_in_text(f.read()))
 
     _VALID_ACTIONS = {"allow", "deny", "ask"}
 
@@ -420,12 +421,10 @@ def load_tools_file(path: str, service_name: str) -> list[ToolDefinition]:
         raise ConfigError(f"Tools file not found: {path}")
 
     with open(p) as f:
-        raw = yaml.safe_load(f)
+        raw = yaml.safe_load(substitute_env_vars_in_text(f.read()))
 
     if raw is None:
         return []
-
-    raw = substitute_env_vars(raw)
 
     tools_raw = raw.get("tools")
     if not tools_raw:

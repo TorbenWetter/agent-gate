@@ -1,6 +1,6 @@
 [project]
 name = "agentpass"
-version = "0.1.0"
+version = "0.1.1"
 description = "An execution gateway for AI agents on untrusted devices"
 readme = "README.md"
 requires-python = ">=3.12"
