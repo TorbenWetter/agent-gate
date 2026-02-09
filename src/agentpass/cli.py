@@ -7,12 +7,12 @@ import json
 import sys
 from argparse import Namespace
 
-from agent_gate.client import (
-    AgentGateClient,
-    AgentGateConnectionError,
-    AgentGateDenied,
-    AgentGateError,
-    AgentGateTimeout,
+from agentpass.client import (
+    AgentPassClient,
+    AgentPassConnectionError,
+    AgentPassDenied,
+    AgentPassError,
+    AgentPassTimeout,
 )
 
 # Exit codes
@@ -50,7 +50,7 @@ async def run_request(args: Namespace) -> int:
     timeout = args.timeout
 
     if not url:
-        print("Error: Gateway URL required (--url or AGENT_GATE_URL)", file=sys.stderr)
+        print("Error: Gateway URL required (--url or AGENTPASS_URL)", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
     if not token:
         print("Error: Agent token required (--token or AGENT_TOKEN)", file=sys.stderr)
@@ -64,7 +64,7 @@ async def run_request(args: Namespace) -> int:
         return EXIT_INVALID_ARGS
 
     try:
-        async with AgentGateClient(url, token, max_retries=0) as client:
+        async with AgentPassClient(url, token, max_retries=0) as client:
             result = await asyncio.wait_for(
                 client.tool_request(tool, **tool_args),
                 timeout=timeout,
@@ -72,19 +72,19 @@ async def run_request(args: Namespace) -> int:
         print(json.dumps(result, indent=2))
         return EXIT_SUCCESS
 
-    except AgentGateDenied as e:
+    except AgentPassDenied as e:
         print(f"Error: Denied ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_DENIED
-    except AgentGateTimeout as e:
+    except AgentPassTimeout as e:
         print(f"Error: Timeout ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_TIMEOUT
     except TimeoutError:
         print("Error: Request timed out waiting for response", file=sys.stderr)
         return EXIT_TIMEOUT
-    except AgentGateConnectionError as e:
+    except AgentPassConnectionError as e:
         print(f"Error: Connection failed ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
-    except AgentGateError as e:
+    except AgentPassError as e:
         print(f"Error: Gateway error ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_DENIED
     except OSError as e:
@@ -98,23 +98,23 @@ async def run_tools(args: Namespace) -> int:
     token = args.token
 
     if not url:
-        print("Error: Gateway URL required (--url or AGENT_GATE_URL)", file=sys.stderr)
+        print("Error: Gateway URL required (--url or AGENTPASS_URL)", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
     if not token:
         print("Error: Agent token required (--token or AGENT_TOKEN)", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
 
     try:
-        async with AgentGateClient(url, token, max_retries=0) as client:
+        async with AgentPassClient(url, token, max_retries=0) as client:
             tools = await client.list_tools()
 
         print(json.dumps(tools, indent=2))
         return EXIT_SUCCESS
 
-    except AgentGateConnectionError as e:
+    except AgentPassConnectionError as e:
         print(f"Error: Connection failed ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
-    except AgentGateError as e:
+    except AgentPassError as e:
         print(f"Error: Gateway error ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_DENIED
     except OSError as e:
@@ -131,22 +131,22 @@ async def run_pending(args: Namespace) -> int:
     token = args.token
 
     if not url:
-        print("Error: Gateway URL required (--url or AGENT_GATE_URL)", file=sys.stderr)
+        print("Error: Gateway URL required (--url or AGENTPASS_URL)", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
     if not token:
         print("Error: Agent token required (--token or AGENT_TOKEN)", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
 
     try:
-        async with AgentGateClient(url, token, max_retries=0) as client:
+        async with AgentPassClient(url, token, max_retries=0) as client:
             results = await client.get_pending_results()
         print(json.dumps(results, indent=2))
         return EXIT_SUCCESS
 
-    except AgentGateConnectionError as e:
+    except AgentPassConnectionError as e:
         print(f"Error: Connection failed ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_CONNECTION_ERROR
-    except AgentGateError as e:
+    except AgentPassError as e:
         print(f"Error: Gateway error ({e.code}): {e.message}", file=sys.stderr)
         return EXIT_DENIED
     except TimeoutError:

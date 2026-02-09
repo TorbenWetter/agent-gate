@@ -6,11 +6,11 @@ import re
 from fnmatch import fnmatch
 from typing import TYPE_CHECKING
 
-from agent_gate.config import Permissions
-from agent_gate.models import Decision
+from agentpass.config import Permissions
+from agentpass.models import Decision
 
 if TYPE_CHECKING:
-    from agent_gate.registry import ToolRegistry
+    from agentpass.registry import ToolRegistry
 
 # Characters forbidden in ANY argument value (prevents glob/signature injection)
 FORBIDDEN_CHARS_RE = re.compile(r"[*?\[\](),\x00-\x1f]")

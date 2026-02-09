@@ -1,4 +1,4 @@
-"""Tests for agent_gate.client — SDK protocol (T1 core + T2 reconnection)."""
+"""Tests for agentpass.client — SDK protocol (T1 core + T2 reconnection)."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import websockets.exceptions
 
-from agent_gate.client import (
-    AgentGateClient,
-    AgentGateConnectionError,
-    AgentGateDenied,
-    AgentGateError,
-    AgentGateTimeout,
+from agentpass.client import (
+    AgentPassClient,
+    AgentPassConnectionError,
+    AgentPassDenied,
+    AgentPassError,
+    AgentPassTimeout,
 )
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ def mock_ws() -> MockWebSocket:
 
 @pytest.fixture
 def patch_connect(mock_ws: MockWebSocket):
-    with patch("agent_gate.client.websockets.connect", new_callable=AsyncMock) as m:
+    with patch("agentpass.client.websockets.connect", new_callable=AsyncMock) as m:
         m.return_value = mock_ws
         yield m
 
@@ -104,27 +104,27 @@ def patch_connect(mock_ws: MockWebSocket):
 
 
 class TestErrorClassHierarchy:
-    def test_agent_gate_error_has_code_and_message(self):
-        err = AgentGateError(42, "something broke")
+    def test_agentpass_error_has_code_and_message(self):
+        err = AgentPassError(42, "something broke")
         assert err.code == 42
         assert err.message == "something broke"
         assert str(err) == "something broke"
 
     def test_denied_extends_error(self):
-        err = AgentGateDenied(-32001, "denied")
-        assert isinstance(err, AgentGateError)
+        err = AgentPassDenied(-32001, "denied")
+        assert isinstance(err, AgentPassError)
         assert err.code == -32001
         assert err.message == "denied"
 
     def test_timeout_extends_error(self):
-        err = AgentGateTimeout(-32002, "timed out")
-        assert isinstance(err, AgentGateError)
+        err = AgentPassTimeout(-32002, "timed out")
+        assert isinstance(err, AgentPassError)
         assert err.code == -32002
         assert err.message == "timed out"
 
     def test_connection_error_extends_error(self):
-        err = AgentGateConnectionError(-1, "connection failed")
-        assert isinstance(err, AgentGateError)
+        err = AgentPassConnectionError(-1, "connection failed")
+        assert isinstance(err, AgentPassError)
         assert err.code == -1
         assert err.message == "connection failed"
 
@@ -139,7 +139,7 @@ class TestConnectAndAuthenticate:
         """Client connects, sends auth message, receives success."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         # Verify websockets.connect was called with the URL
@@ -160,7 +160,7 @@ class TestConnectAndAuthenticate:
         await client.close()
 
     async def test_auth_failure_invalid_token(self, mock_ws, patch_connect):
-        """Server returns error, client raises AgentGateConnectionError."""
+        """Server returns error, client raises AgentPassConnectionError."""
         mock_ws.feed(
             json.dumps(
                 {
@@ -171,8 +171,8 @@ class TestConnectAndAuthenticate:
             )
         )
 
-        client = AgentGateClient("ws://localhost:8443", "bad-token")
-        with pytest.raises(AgentGateConnectionError) as exc_info:
+        client = AgentPassClient("ws://localhost:8443", "bad-token")
+        with pytest.raises(AgentPassConnectionError) as exc_info:
             await client.connect()
 
         assert exc_info.value.code == -32005
@@ -180,7 +180,7 @@ class TestConnectAndAuthenticate:
         await client.close()
 
     async def test_auth_failure_unexpected_response(self, mock_ws, patch_connect):
-        """Server returns non-'authenticated' status, raises AgentGateConnectionError."""
+        """Server returns non-'authenticated' status, raises AgentPassConnectionError."""
         mock_ws.feed(
             json.dumps(
                 {
@@ -191,8 +191,8 @@ class TestConnectAndAuthenticate:
             )
         )
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
-        with pytest.raises(AgentGateConnectionError) as exc_info:
+        client = AgentPassClient("ws://localhost:8443", "test-token")
+        with pytest.raises(AgentPassConnectionError) as exc_info:
             await client.connect()
 
         assert exc_info.value.code == -1
@@ -210,7 +210,7 @@ class TestToolRequests:
         """Send tool_request, get result back, verify JSON-RPC format."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -232,10 +232,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_denied_by_policy(self, mock_ws, patch_connect):
-        """Server returns -32003, raises AgentGateDenied."""
+        """Server returns -32003, raises AgentPassDenied."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -243,7 +243,7 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -32003, "Policy denied"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateDenied) as exc_info:
+        with pytest.raises(AgentPassDenied) as exc_info:
             await client.tool_request("ha_call_service", domain="lock", service="lock")
 
         assert exc_info.value.code == -32003
@@ -252,10 +252,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_denied_by_user(self, mock_ws, patch_connect):
-        """Server returns -32001, raises AgentGateDenied."""
+        """Server returns -32001, raises AgentPassDenied."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -263,7 +263,7 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -32001, "Denied by user"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateDenied) as exc_info:
+        with pytest.raises(AgentPassDenied) as exc_info:
             await client.tool_request("ha_call_service", domain="lock", service="unlock")
 
         assert exc_info.value.code == -32001
@@ -272,10 +272,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_timeout(self, mock_ws, patch_connect):
-        """Server returns -32002, raises AgentGateTimeout."""
+        """Server returns -32002, raises AgentPassTimeout."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -283,7 +283,7 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -32002, "Approval timed out"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateTimeout) as exc_info:
+        with pytest.raises(AgentPassTimeout) as exc_info:
             await client.tool_request("ha_call_service", domain="light", service="turn_on")
 
         assert exc_info.value.code == -32002
@@ -292,10 +292,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_execution_error(self, mock_ws, patch_connect):
-        """Server returns -32004, raises AgentGateError."""
+        """Server returns -32004, raises AgentPassError."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -303,7 +303,7 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -32004, "Execution failed"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateError) as exc_info:
+        with pytest.raises(AgentPassError) as exc_info:
             await client.tool_request("ha_get_state", entity_id="sensor.broken")
 
         assert exc_info.value.code == -32004
@@ -312,10 +312,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_rate_limited(self, mock_ws, patch_connect):
-        """Server returns -32006, raises AgentGateError."""
+        """Server returns -32006, raises AgentPassError."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -323,7 +323,7 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -32006, "Rate limit exceeded"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateError) as exc_info:
+        with pytest.raises(AgentPassError) as exc_info:
             await client.tool_request("ha_get_state", entity_id="sensor.temp")
 
         assert exc_info.value.code == -32006
@@ -332,10 +332,10 @@ class TestToolRequests:
         await client.close()
 
     async def test_tool_request_other_error(self, mock_ws, patch_connect):
-        """Server returns some other error code, raises AgentGateError."""
+        """Server returns some other error code, raises AgentPassError."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -343,13 +343,13 @@ class TestToolRequests:
             mock_ws.feed(_tool_error(1, -99999, "Unknown server error"))
 
         _task = asyncio.create_task(respond())  # noqa: RUF006
-        with pytest.raises(AgentGateError) as exc_info:
+        with pytest.raises(AgentPassError) as exc_info:
             await client.tool_request("ha_get_state", entity_id="sensor.temp")
 
         assert exc_info.value.code == -99999
         assert "Unknown server error" in exc_info.value.message
         # Should NOT be a subclass-specific exception for unknown codes
-        assert type(exc_info.value) is AgentGateError
+        assert type(exc_info.value) is AgentPassError
 
         await client.close()
 
@@ -364,7 +364,7 @@ class TestConcurrentRequests:
         """Two requests sent concurrently, each gets correct response by ID."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -398,7 +398,7 @@ class TestContextManager:
         """async with works: connect on enter, close on exit."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        async with AgentGateClient("ws://localhost:8443", "test-token") as client:
+        async with AgentPassClient("ws://localhost:8443", "test-token") as client:
             assert client._ws is not None
             assert client._reader_task is not None
             assert not client._reader_task.done()
@@ -417,7 +417,7 @@ class TestClose:
         """Reader task is cancelled on close."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         reader_task = client._reader_task
@@ -440,7 +440,7 @@ class TestGetPendingResults:
         """Returns results list and resolves matching pending futures."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         # Simulate a pending future for a request made before disconnect
@@ -488,7 +488,7 @@ class TestGetPendingResults:
         """Returns empty list when no pending results."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():
@@ -519,7 +519,7 @@ class TestGetPendingResults:
 class TestNextId:
     def test_next_id_increments(self):
         """IDs increment: 1, 2, 3..."""
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         assert client._next_id() == 1
         assert client._next_id() == 2
         assert client._next_id() == 3
@@ -593,8 +593,8 @@ class TestReconnectOnDisconnect:
         async def fake_sleep(delay: float) -> None:
             sleep_delays.append(delay)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -641,8 +641,8 @@ class TestReconnectExponentialBackoff:
         async def fake_sleep(delay: float) -> None:
             sleep_delays.append(delay)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -677,8 +677,8 @@ class TestReconnectBackoffCapped:
         async def fake_sleep(delay: float) -> None:
             sleep_delays.append(delay)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -695,7 +695,7 @@ class TestReconnectBackoffCapped:
 
 class TestMaxRetriesExhausted:
     async def test_max_retries_exhausted(self):
-        """With max_retries=2, after 2 failed attempts raises AgentGateConnectionError."""
+        """With max_retries=2, after 2 failed attempts raises AgentPassConnectionError."""
         ws1 = _make_mock_ws()
 
         connect_mock = AsyncMock(
@@ -711,8 +711,8 @@ class TestMaxRetriesExhausted:
         async def fake_sleep(delay: float) -> None:
             sleep_delays.append(delay)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token", max_retries=2)
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token", max_retries=2)
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -726,7 +726,7 @@ class TestMaxRetriesExhausted:
 
             # Pending future should have been failed with ConnectionError
             assert pending_future.done()
-            with pytest.raises(AgentGateConnectionError) as exc_info:
+            with pytest.raises(AgentPassConnectionError) as exc_info:
                 pending_future.result()
             assert "Connection lost" in exc_info.value.message
 
@@ -751,8 +751,8 @@ class TestInfiniteRetriesDefault:
         async def fake_sleep(_delay: float) -> None:
             pass
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -776,8 +776,8 @@ class TestReauthOnReconnect:
         async def fake_sleep(_delay: float) -> None:
             pass
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "my-secret-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "my-secret-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -828,8 +828,8 @@ class TestPendingResultsFetchedOnReconnect:
         async def fake_sleep(_delay: float) -> None:
             pass
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -864,8 +864,8 @@ class TestCloseStopsReconnection:
             # Actually sleep briefly to give close() a chance to set _closed
             await asyncio.sleep(0.1)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -914,8 +914,8 @@ class TestToolRequestDuringReconnect:
         async def fake_sleep(_delay: float) -> None:
             pass
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -961,8 +961,8 @@ class TestToolRequestWaitsForReconnect:
             original_fake_sleep_called = True
             reconnect_started.set()
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -1006,8 +1006,8 @@ class TestCloseCancelsReconnectTask:
             # Block until cancelled — simulates a long backoff
             await asyncio.sleep(60)
 
-        with patch("agent_gate.client.websockets.connect", connect_mock):
-            client = AgentGateClient("ws://localhost:8443", "test-token")
+        with patch("agentpass.client.websockets.connect", connect_mock):
+            client = AgentPassClient("ws://localhost:8443", "test-token")
             client._backoff_sleep = fake_sleep
             await client.connect()
 
@@ -1032,7 +1032,7 @@ class TestReadLoopSurvivesMalformedJson:
         """A malformed JSON message is skipped; the next valid message is processed."""
         mock_ws.feed(AUTH_SUCCESS)
 
-        client = AgentGateClient("ws://localhost:8443", "test-token")
+        client = AgentPassClient("ws://localhost:8443", "test-token")
         await client.connect()
 
         async def respond():

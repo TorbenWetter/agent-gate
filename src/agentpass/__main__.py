@@ -1,4 +1,4 @@
-"""CLI entrypoint and orchestration for agent-gate."""
+"""CLI entrypoint and orchestration for agentpass."""
 
 from __future__ import annotations
 
@@ -15,17 +15,17 @@ from pathlib import Path
 import websockets
 import websockets.asyncio.server
 
-from agent_gate.config import ConfigError, ServiceConfig, load_config, load_permissions
-from agent_gate.db import Database
-from agent_gate.engine import PermissionEngine
-from agent_gate.executor import Executor
-from agent_gate.messenger.telegram import TelegramAdapter
-from agent_gate.registry import build_registry
-from agent_gate.server import GatewayServer
-from agent_gate.services.base import ServiceHandler
-from agent_gate.services.http import GenericHTTPService
+from agentpass.config import ConfigError, ServiceConfig, load_config, load_permissions
+from agentpass.db import Database
+from agentpass.engine import PermissionEngine
+from agentpass.executor import Executor
+from agentpass.messenger.telegram import TelegramAdapter
+from agentpass.registry import build_registry
+from agentpass.server import GatewayServer
+from agentpass.services.base import ServiceHandler
+from agentpass.services.http import GenericHTTPService
 
-logger = logging.getLogger("agent_gate")
+logger = logging.getLogger("agentpass")
 
 
 def _load_plugin_service(config: ServiceConfig) -> ServiceHandler:
@@ -88,7 +88,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if first_positional not in KNOWN_COMMANDS:
         raw = ["serve", *raw]
 
-    parser = argparse.ArgumentParser(description="agent-gate: execution gateway for AI agents")
+    parser = argparse.ArgumentParser(description="agentpass: execution gateway for AI agents")
     subparsers = parser.add_subparsers(dest="command")
 
     # serve subcommand
@@ -105,7 +105,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     request_parser.add_argument("args", nargs="*", default=[], help="key=value arguments")
     request_parser.add_argument(
         "--url",
-        default=os.environ.get("AGENT_GATE_URL", ""),
+        default=os.environ.get("AGENTPASS_URL", ""),
         help="Gateway WebSocket URL",
     )
     request_parser.add_argument(
@@ -119,7 +119,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     tools_parser = subparsers.add_parser("tools", help="List available tools")
     tools_parser.add_argument(
         "--url",
-        default=os.environ.get("AGENT_GATE_URL", ""),
+        default=os.environ.get("AGENTPASS_URL", ""),
         help="Gateway WebSocket URL",
     )
     tools_parser.add_argument(
@@ -132,7 +132,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     pending_parser = subparsers.add_parser("pending", help="Retrieve pending results")
     pending_parser.add_argument(
         "--url",
-        default=os.environ.get("AGENT_GATE_URL", ""),
+        default=os.environ.get("AGENTPASS_URL", ""),
         help="Gateway WebSocket URL",
     )
     pending_parser.add_argument(
@@ -226,7 +226,7 @@ async def run(args: argparse.Namespace) -> None:
         ):
             proto = "wss" if ssl_ctx else "ws"
             logger.info(
-                "agent-gate ready on %s://%s:%d",
+                "agentpass ready on %s://%s:%d",
                 proto,
                 config.gateway.host,
                 config.gateway.port,
@@ -243,7 +243,7 @@ async def run(args: argparse.Namespace) -> None:
     for svc in services.values():
         await svc.close()
     await db.close()
-    logger.info("agent-gate stopped")
+    logger.info("agentpass stopped")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -261,17 +261,17 @@ def main(argv: list[str] | None = None) -> None:
             logger.error("Configuration error: %s", e)
             sys.exit(1)
     elif args.command == "request":
-        from agent_gate.cli import run_request
+        from agentpass.cli import run_request
 
         exit_code = asyncio.run(run_request(args))
         sys.exit(exit_code)
     elif args.command == "tools":
-        from agent_gate.cli import run_tools
+        from agentpass.cli import run_tools
 
         exit_code = asyncio.run(run_tools(args))
         sys.exit(exit_code)
     elif args.command == "pending":
-        from agent_gate.cli import run_pending
+        from agentpass.cli import run_pending
 
         exit_code = asyncio.run(run_pending(args))
         sys.exit(exit_code)

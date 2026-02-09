@@ -1,8 +1,8 @@
-"""Tests for agent_gate.messenger.base — MessengerAdapter ABC and dataclasses."""
+"""Tests for agentpass.messenger.base — MessengerAdapter ABC and dataclasses."""
 
 import pytest
 
-from agent_gate.messenger.base import (
+from agentpass.messenger.base import (
     ApprovalChoice,
     ApprovalRequest,
     ApprovalResult,

@@ -1,4 +1,4 @@
-"""Agent SDK for agent-gate — core protocol + auto-reconnection."""
+"""Agent SDK for agentpass — core protocol + auto-reconnection."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ import websockets
 # ---------------------------------------------------------------------------
 
 
-class AgentGateError(Exception):
-    """Base error for agent-gate SDK."""
+class AgentPassError(Exception):
+    """Base error for agentpass SDK."""
 
     def __init__(self, code: int, message: str) -> None:
         self.code = code
@@ -22,29 +22,29 @@ class AgentGateError(Exception):
         super().__init__(message)
 
 
-class AgentGateDenied(AgentGateError):
+class AgentPassDenied(AgentPassError):
     """Tool request was denied (by policy or by user). Codes: -32001, -32003."""
 
 
-class AgentGateTimeout(AgentGateError):
+class AgentPassTimeout(AgentPassError):
     """Approval request timed out. Code: -32002."""
 
 
-class AgentGateConnectionError(AgentGateError):
+class AgentPassConnectionError(AgentPassError):
     """Connection or authentication failure."""
 
 
 # ---------------------------------------------------------------------------
-# AgentGateClient
+# AgentPassClient
 # ---------------------------------------------------------------------------
 
 
-class AgentGateClient:
-    """Async client SDK for the agent-gate WebSocket gateway.
+class AgentPassClient:
+    """Async client SDK for the agentpass WebSocket gateway.
 
     Usage::
 
-        async with AgentGateClient("wss://gateway:8443", token) as client:
+        async with AgentPassClient("wss://gateway:8443", token) as client:
             result = await client.tool_request("ha_get_state", entity_id="sensor.temp")
     """
 
@@ -85,7 +85,7 @@ class AgentGateClient:
         if not self._connected.is_set():
             await self._connected.wait()
         if self._closed:
-            raise AgentGateConnectionError(-1, "Client is closed")
+            raise AgentPassConnectionError(-1, "Client is closed")
 
         await self._ws.send(
             json.dumps(
@@ -164,7 +164,7 @@ class AgentGateClient:
 
     # -- context manager -----------------------------------------------------
 
-    async def __aenter__(self) -> AgentGateClient:
+    async def __aenter__(self) -> AgentPassClient:
         await self.connect()
         return self
 
@@ -193,13 +193,13 @@ class AgentGateClient:
         msg = json.loads(raw)
         if "error" in msg:
             err = msg["error"]
-            raise AgentGateConnectionError(
+            raise AgentPassConnectionError(
                 err.get("code", -1),
                 err.get("message", "Auth failed"),
             )
         result = msg.get("result", {})
         if result.get("status") != "authenticated":
-            raise AgentGateConnectionError(-1, "Unexpected auth response")
+            raise AgentPassConnectionError(-1, "Unexpected auth response")
 
     async def _read_loop(self) -> None:
         """Background task: read responses and dispatch to pending futures."""
@@ -227,11 +227,11 @@ class AgentGateClient:
                     code = err.get("code", -1)
                     message = err.get("message", "Unknown error")
                     if code in (-32001, -32003):
-                        future.set_exception(AgentGateDenied(code, message))
+                        future.set_exception(AgentPassDenied(code, message))
                     elif code == -32002:
-                        future.set_exception(AgentGateTimeout(code, message))
+                        future.set_exception(AgentPassTimeout(code, message))
                     else:
-                        future.set_exception(AgentGateError(code, message))
+                        future.set_exception(AgentPassError(code, message))
                 else:
                     future.set_result(msg.get("result", {}))
         except websockets.exceptions.ConnectionClosed:
@@ -274,11 +274,11 @@ class AgentGateClient:
                         future.set_result(data)
                     elif status == "denied":
                         future.set_exception(
-                            AgentGateDenied(-32001, data if isinstance(data, str) else "Denied")
+                            AgentPassDenied(-32001, data if isinstance(data, str) else "Denied")
                         )
                     elif status == "error":
                         future.set_exception(
-                            AgentGateError(
+                            AgentPassError(
                                 -32004, data if isinstance(data, str) else "Execution failed"
                             )
                         )
@@ -298,7 +298,7 @@ class AgentGateClient:
                 # Fail all pending futures
                 for future in self._pending.values():
                     if not future.done():
-                        future.set_exception(AgentGateConnectionError(-1, "Connection lost"))
+                        future.set_exception(AgentPassConnectionError(-1, "Connection lost"))
                 self._pending.clear()
                 return
 
@@ -318,7 +318,7 @@ class AgentGateClient:
             except (
                 OSError,
                 websockets.exceptions.WebSocketException,
-                AgentGateConnectionError,
+                AgentPassConnectionError,
             ):
                 delay = min(delay * 2, max_delay)
 

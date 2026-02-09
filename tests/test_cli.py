@@ -1,4 +1,4 @@
-"""Tests for agent_gate.cli — CLI client commands."""
+"""Tests for agentpass.cli — CLI client commands."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from agent_gate.cli import (
+from agentpass.cli import (
     EXIT_CONNECTION_ERROR,
     EXIT_DENIED,
     EXIT_INVALID_ARGS,
@@ -71,12 +71,12 @@ class TestParseKeyValueArgs:
 
 
 # ---------------------------------------------------------------------------
-# Helper to build a mock AgentGateClient
+# Helper to build a mock AgentPassClient
 # ---------------------------------------------------------------------------
 
 
 def _make_mock_client(**overrides):
-    """Build an AsyncMock that works as an async context manager for AgentGateClient."""
+    """Build an AsyncMock that works as an async context manager for AgentPassClient."""
     mock_client = AsyncMock()
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
@@ -91,7 +91,7 @@ def _make_mock_client(**overrides):
 # run_request tests
 # ---------------------------------------------------------------------------
 
-_CLI_PATCH = "agent_gate.cli.AgentGateClient"
+_CLI_PATCH = "agentpass.cli.AgentPassClient"
 
 
 class TestRunRequest:
@@ -120,8 +120,8 @@ class TestRunRequest:
 
     @pytest.mark.asyncio
     async def test_denied_prints_error(self, capsys):
-        """AgentGateDenied returns exit code 1 with error on stderr."""
-        from agent_gate.client import AgentGateDenied
+        """AgentPassDenied returns exit code 1 with error on stderr."""
+        from agentpass.client import AgentPassDenied
 
         args = Namespace(
             url="wss://gw:8443",
@@ -131,7 +131,7 @@ class TestRunRequest:
             timeout=900.0,
         )
         mock_client = _make_mock_client(
-            tool_request=AsyncMock(side_effect=AgentGateDenied(-32001, "Policy denied")),
+            tool_request=AsyncMock(side_effect=AgentPassDenied(-32001, "Policy denied")),
         )
 
         with patch(_CLI_PATCH, return_value=mock_client):
@@ -143,8 +143,8 @@ class TestRunRequest:
 
     @pytest.mark.asyncio
     async def test_timeout_prints_error(self, capsys):
-        """AgentGateTimeout returns exit code 2 with error on stderr."""
-        from agent_gate.client import AgentGateTimeout
+        """AgentPassTimeout returns exit code 2 with error on stderr."""
+        from agentpass.client import AgentPassTimeout
 
         args = Namespace(
             url="wss://gw:8443",
@@ -154,7 +154,7 @@ class TestRunRequest:
             timeout=900.0,
         )
         mock_client = _make_mock_client(
-            tool_request=AsyncMock(side_effect=AgentGateTimeout(-32002, "Approval timed out")),
+            tool_request=AsyncMock(side_effect=AgentPassTimeout(-32002, "Approval timed out")),
         )
 
         with patch(_CLI_PATCH, return_value=mock_client):
@@ -166,8 +166,8 @@ class TestRunRequest:
 
     @pytest.mark.asyncio
     async def test_connection_error_prints_error(self, capsys):
-        """AgentGateConnectionError returns exit code 3 with error on stderr."""
-        from agent_gate.client import AgentGateConnectionError
+        """AgentPassConnectionError returns exit code 3 with error on stderr."""
+        from agentpass.client import AgentPassConnectionError
 
         args = Namespace(
             url="wss://gw:8443",
@@ -179,7 +179,7 @@ class TestRunRequest:
         # Connection error happens during context manager entry
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(
-            side_effect=AgentGateConnectionError(-1, "Auth failed"),
+            side_effect=AgentPassConnectionError(-1, "Auth failed"),
         )
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -306,13 +306,13 @@ class TestRunTools:
 
     @pytest.mark.asyncio
     async def test_connection_error(self, capsys):
-        """AgentGateConnectionError returns exit code 3."""
-        from agent_gate.client import AgentGateConnectionError
+        """AgentPassConnectionError returns exit code 3."""
+        from agentpass.client import AgentPassConnectionError
 
         args = Namespace(url="wss://gw:8443", token="test-token")
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(
-            side_effect=AgentGateConnectionError(-1, "Connection refused"),
+            side_effect=AgentPassConnectionError(-1, "Connection refused"),
         )
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -362,13 +362,13 @@ class TestRunPending:
 
     @pytest.mark.asyncio
     async def test_connection_error(self, capsys):
-        """AgentGateConnectionError returns exit code 3."""
-        from agent_gate.client import AgentGateConnectionError
+        """AgentPassConnectionError returns exit code 3."""
+        from agentpass.client import AgentPassConnectionError
 
         args = Namespace(url="wss://gw:8443", token="test-token")
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(
-            side_effect=AgentGateConnectionError(-1, "Connection refused"),
+            side_effect=AgentPassConnectionError(-1, "Connection refused"),
         )
         mock_client.__aexit__ = AsyncMock(return_value=False)
 

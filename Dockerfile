@@ -13,4 +13,4 @@ VOLUME ["/app/data"]
 
 EXPOSE 8443
 
-CMD ["agent-gate"]
+CMD ["agentpass"]

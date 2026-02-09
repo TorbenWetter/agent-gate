@@ -14,8 +14,8 @@ from telegram.ext import (
     PicklePersistence,
 )
 
-from agent_gate.config import TelegramConfig
-from agent_gate.messenger.base import (
+from agentpass.config import TelegramConfig
+from agentpass.messenger.base import (
     ApprovalChoice,
     ApprovalRequest,
     ApprovalResult,

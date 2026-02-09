@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     ArgDefinition,
     ConfigError,
     RequestDefinition,

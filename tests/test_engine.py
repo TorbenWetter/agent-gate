@@ -1,17 +1,17 @@
-"""Tests for agent_gate.engine — signature building, validation, permission evaluation."""
+"""Tests for agentpass.engine — signature building, validation, permission evaluation."""
 
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     AuthConfig,
     PermissionRule,
     Permissions,
     ServiceConfig,
     load_tools_file,
 )
-from agent_gate.engine import PermissionEngine, build_signature, validate_args
-from agent_gate.models import Decision
-from agent_gate.registry import build_registry
+from agentpass.engine import PermissionEngine, build_signature, validate_args
+from agentpass.models import Decision
+from agentpass.registry import build_registry
 
 
 @pytest.fixture()

@@ -7,8 +7,8 @@ from typing import Any
 
 import aiohttp
 
-from agent_gate.config import ServiceConfig, ToolDefinition
-from agent_gate.services.base import ServiceHandler
+from agentpass.config import ServiceConfig, ToolDefinition
+from agentpass.services.base import ServiceHandler
 
 
 class HTTPServiceError(Exception):
@@ -149,7 +149,7 @@ class GenericHTTPService(ServiceHandler):
             ) as resp:
                 return resp.status == health.expect_status
         except Exception as e:
-            logging.getLogger("agent_gate.services.http").debug(
+            logging.getLogger("agentpass.services.http").debug(
                 "Health check failed for %s: %s", self._config.name, e
             )
             return False

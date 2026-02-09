@@ -1,4 +1,4 @@
-"""Tests for agent_gate.registry — ToolRegistry and build_registry."""
+"""Tests for agentpass.registry — ToolRegistry and build_registry."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     ArgDefinition,
     AuthConfig,
     ConfigError,
@@ -16,7 +16,7 @@ from agent_gate.config import (
     ServiceConfig,
     ToolDefinition,
 )
-from agent_gate.registry import ToolRegistry, build_registry
+from agentpass.registry import ToolRegistry, build_registry
 
 # --- Helpers ---
 

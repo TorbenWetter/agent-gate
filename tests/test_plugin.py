@@ -6,13 +6,13 @@ from typing import Any
 
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     AuthConfig,
     ConfigError,
     ServiceConfig,
     ToolDefinition,
 )
-from agent_gate.services.base import ServiceHandler
+from agentpass.services.base import ServiceHandler
 
 # ---------------------------------------------------------------------------
 # A real plugin class for testing
@@ -60,7 +60,7 @@ class TestLoadPluginService:
 
     def test_loads_valid_plugin(self):
         """Valid handler_class is imported and instantiated correctly."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = self._make_config()
         service = _load_plugin_service(config)
@@ -70,7 +70,7 @@ class TestLoadPluginService:
 
     def test_missing_handler_class_raises(self):
         """handler=python with empty handler_class raises ConfigError."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = self._make_config(handler_class="")
         with pytest.raises(ConfigError, match="no handler_class"):
@@ -78,7 +78,7 @@ class TestLoadPluginService:
 
     def test_invalid_format_raises(self):
         """handler_class without ':' separator raises ConfigError."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = self._make_config(handler_class="module.without.colon")
         with pytest.raises(ConfigError, match=r"expected 'module\.path:ClassName'"):
@@ -86,7 +86,7 @@ class TestLoadPluginService:
 
     def test_non_importable_module_raises(self):
         """Non-existent module in handler_class raises ConfigError."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = self._make_config(handler_class="nonexistent.module:SomeClass")
         with pytest.raises(ConfigError, match="Cannot import"):
@@ -94,7 +94,7 @@ class TestLoadPluginService:
 
     def test_missing_class_in_module_raises(self):
         """Existing module but missing class name raises ConfigError."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = self._make_config(handler_class="tests.test_plugin:NonexistentClass")
         with pytest.raises(ConfigError, match="not found"):
@@ -123,7 +123,7 @@ class TestPluginIntegration:
     @pytest.mark.asyncio
     async def test_plugin_service_execute(self):
         """When loaded via _load_plugin_service, the plugin can execute tools."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = ServiceConfig(
             name="test_svc",
@@ -140,7 +140,7 @@ class TestPluginIntegration:
     @pytest.mark.asyncio
     async def test_plugin_health_check(self):
         """Plugin service health_check is callable."""
-        from agent_gate.__main__ import _load_plugin_service
+        from agentpass.__main__ import _load_plugin_service
 
         config = ServiceConfig(
             name="test_svc",

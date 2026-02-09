@@ -12,18 +12,18 @@ from typing import TYPE_CHECKING, Any
 from websockets.exceptions import ConnectionClosed
 
 if TYPE_CHECKING:
-    from agent_gate.registry import ToolRegistry
+    from agentpass.registry import ToolRegistry
 
-from agent_gate.db import Database
-from agent_gate.engine import PermissionEngine, build_signature, validate_args
-from agent_gate.executor import ExecutionError, Executor
-from agent_gate.messenger.base import (
+from agentpass.db import Database
+from agentpass.engine import PermissionEngine, build_signature, validate_args
+from agentpass.executor import ExecutionError, Executor
+from agentpass.messenger.base import (
     ApprovalChoice,
     ApprovalRequest,
     ApprovalResult,
     MessengerAdapter,
 )
-from agent_gate.models import AuditEntry, Decision, PendingApproval, ToolRequest
+from agentpass.models import AuditEntry, Decision, PendingApproval, ToolRequest
 
 logger = logging.getLogger(__name__)
 

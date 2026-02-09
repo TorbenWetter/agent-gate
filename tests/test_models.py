@@ -1,9 +1,9 @@
-"""Tests for agent_gate.models — shared data models."""
+"""Tests for agentpass.models — shared data models."""
 
 import asyncio
 import time
 
-from agent_gate.models import (
+from agentpass.models import (
     AuditEntry,
     Decision,
     PendingApproval,

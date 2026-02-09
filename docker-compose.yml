@@ -1,5 +1,5 @@
 services:
-  agent-gate:
+  agentpass:
     build: .
     ports:
       - "8443:8443"

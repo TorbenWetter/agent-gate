@@ -1,10 +1,10 @@
 # Feature: Core Engine
 
-> Pure-logic foundation for agent-gate: models, config loading, permission engine, SQLite storage, and action dispatch — all independently testable with no network dependencies.
+> Pure-logic foundation for agentpass: models, config loading, permission engine, SQLite storage, and action dispatch — all independently testable with no network dependencies.
 
 ## Overview
 
-The core engine is the first implementation phase of agent-gate. It provides the domain models, configuration loading, permission evaluation, persistent storage, and action routing that all networking layers (WebSocket server, Telegram bot, HA client) depend on. Every module in this phase is pure logic or async-local I/O (SQLite), with no network calls.
+The core engine is the first implementation phase of agentpass. It provides the domain models, configuration loading, permission evaluation, persistent storage, and action routing that all networking layers (WebSocket server, Telegram bot, HA client) depend on. Every module in this phase is pure logic or async-local I/O (SQLite), with no network calls.
 
 ## Requirements
 
@@ -34,12 +34,12 @@ The core engine is the first implementation phase of agent-gate. It provides the
 
 ### Affected Components
 
-- `src/agent_gate/models.py` — All shared dataclasses and enums
-- `src/agent_gate/config.py` — YAML loading, env var substitution, validation, permission parsing
-- `src/agent_gate/engine.py` — Signature builders, input validation, permission evaluation
-- `src/agent_gate/db.py` — SQLite schema, audit log, pending request CRUD
-- `src/agent_gate/executor.py` — TOOL_SERVICE_MAP, Executor class, dispatch routing
-- `src/agent_gate/services/base.py` — ServiceHandler ABC
+- `src/agentpass/models.py` — All shared dataclasses and enums
+- `src/agentpass/config.py` — YAML loading, env var substitution, validation, permission parsing
+- `src/agentpass/engine.py` — Signature builders, input validation, permission evaluation
+- `src/agentpass/db.py` — SQLite schema, audit log, pending request CRUD
+- `src/agentpass/executor.py` — TOOL_SERVICE_MAP, Executor class, dispatch routing
+- `src/agentpass/services/base.py` — ServiceHandler ABC
 
 ### Module Details
 
@@ -59,12 +59,14 @@ class AuditEntry: request_id, timestamp, tool_name, args, signature, decision, r
 #### config.py
 
 **Config loading:**
+
 1. `load_config(path: str = "config.yaml") -> Config` — load YAML, substitute env vars, construct typed dataclasses, validate
 2. `load_permissions(path: str = "permissions.yaml") -> Permissions` — load YAML, substitute env vars, parse into `Permissions` dataclass
 
 **Env var substitution:** Recursive `${VAR}` replacement in all string values. Missing env var → `ConfigError` (fail fast).
 
 **Typed config dataclasses** (from architecture doc):
+
 - `TLSConfig(cert, key)`
 - `GatewayConfig(host, port, tls?)`
 - `AgentConfig(token)`
@@ -76,10 +78,12 @@ class AuditEntry: request_id, timestamp, tool_name, args, signature, decision, r
 - `Config(gateway, agent, messenger, services, storage, approval_timeout=900, rate_limit)`
 
 **Permission dataclasses:**
+
 - `PermissionRule(pattern: str, action: str, description: str = "")`
 - `Permissions(defaults: list[PermissionRule], rules: list[PermissionRule])`
 
 **Validation rules:**
+
 - `gateway.host` and `gateway.port` required
 - `agent.token` required, non-empty
 - `messenger.type` must be `"telegram"`
@@ -93,20 +97,22 @@ class AuditEntry: request_id, timestamp, tool_name, args, signature, decision, r
 
 **Signature builders:**
 
-| Tool | Signature format | Example |
-|------|-----------------|---------|
+| Tool              | Signature format                                   | Example                                         |
+| ----------------- | -------------------------------------------------- | ----------------------------------------------- |
 | `ha_call_service` | `ha_call_service({domain}.{service}, {entity_id})` | `ha_call_service(light.turn_on, light.bedroom)` |
-| `ha_get_state` | `ha_get_state({entity_id})` | `ha_get_state(sensor.living_room_temp)` |
-| `ha_get_states` | `ha_get_states` (no parens) | `ha_get_states` |
-| `ha_fire_event` | `ha_fire_event({event_type})` | `ha_fire_event(custom_event)` |
-| Unknown | `tool_name({sorted_values})` | `custom_tool(arg1_val, arg2_val)` |
+| `ha_get_state`    | `ha_get_state({entity_id})`                        | `ha_get_state(sensor.living_room_temp)`         |
+| `ha_get_states`   | `ha_get_states` (no parens)                        | `ha_get_states`                                 |
+| `ha_fire_event`   | `ha_fire_event({event_type})`                      | `ha_fire_event(custom_event)`                   |
+| Unknown           | `tool_name({sorted_values})`                       | `custom_tool(arg1_val, arg2_val)`               |
 
 **Input validation (before signature building):**
+
 - `FORBIDDEN_CHARS_RE = re.compile(r"[*?\[\](),\x00-\x1f]")`
 - `HA_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]*(\.[a-z0-9_]+)?$")`
 - HA identifier check applies to: `entity_id`, `domain`, `service`, `event_type` fields when tool starts with `ha_`
 
 **Permission evaluation:** `PermissionEngine(permissions: Permissions)`
+
 - `evaluate(tool_name: str, args: dict) -> Decision`
 - Three-pass rule scan: deny matches first, then allow, then ask
 - Then defaults scan: first-match wins
@@ -115,6 +121,7 @@ class AuditEntry: request_id, timestamp, tool_name, args, signature, decision, r
 #### db.py
 
 **`Database` class with `aiosqlite`:**
+
 - `__init__(path: str)` — store path
 - `async initialize()` — create tables + indexes if not exist, set file perms 0600
 - `async log_audit(entry: AuditEntry)` — insert audit entry, convert float timestamps to ISO 8601
@@ -139,6 +146,7 @@ TOOL_SERVICE_MAP = {
 ```
 
 **`Executor` class:**
+
 - `__init__(services: dict[str, ServiceHandler])` — registry of service handlers
 - `async execute(tool_name: str, args: dict) -> dict` — lookup service, dispatch, return result
 - Unknown tool → `ExecutionError("Unknown tool: {tool_name}")`
@@ -189,6 +197,7 @@ class ServiceHandler(ABC):
 ### Unit Tests
 
 **test_models.py:**
+
 - [ ] `Decision` enum has values "allow", "deny", "ask"
 - [ ] `ToolRequest` defaults: `signature=""`, args is dict
 - [ ] `ToolResult` defaults: `data=None`
@@ -196,6 +205,7 @@ class ServiceHandler(ABC):
 - [ ] `AuditEntry` defaults: resolution/resolved_by/resolved_at/execution_result are None, agent_id is "default"
 
 **test_config.py:**
+
 - [ ] `substitute_env_vars` replaces `${VAR}` in strings, dicts, lists
 - [ ] `substitute_env_vars` raises `ConfigError` for unset env var
 - [ ] `substitute_env_vars` ignores non-string values (int, bool, None)
@@ -212,6 +222,7 @@ class ServiceHandler(ABC):
 - [ ] `load_config` raises on missing config file
 
 **test_engine.py:**
+
 - [ ] `build_signature("ha_call_service", {"domain": "light", "service": "turn_on", "entity_id": "light.bedroom"})` → `"ha_call_service(light.turn_on, light.bedroom)"`
 - [ ] `build_signature("ha_get_state", {"entity_id": "sensor.temp"})` → `"ha_get_state(sensor.temp)"`
 - [ ] `build_signature("ha_get_states", {})` → `"ha_get_states"`
@@ -235,6 +246,7 @@ class ServiceHandler(ABC):
 - [ ] Deny rule overrides more specific allow rule (e.g., `ha_call_service(lock.*)` deny vs `ha_call_service(lock.front_door)` allow)
 
 **test_db.py:**
+
 - [ ] `initialize()` creates tables and indexes
 - [ ] `log_audit()` inserts entry with ISO 8601 timestamp
 - [ ] `get_audit_log()` returns entries in reverse chronological order
@@ -248,6 +260,7 @@ class ServiceHandler(ABC):
 - [ ] Database file created with 0600 permissions (Unix only)
 
 **test_executor.py:**
+
 - [ ] `execute()` dispatches `ha_get_state` to homeassistant handler
 - [ ] `execute()` dispatches `ha_call_service` to homeassistant handler
 - [ ] `execute()` raises `ExecutionError` for unknown tool name
@@ -257,33 +270,33 @@ class ServiceHandler(ABC):
 
 ## Edge Cases
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| `${VAR}` where VAR is unset | `ConfigError` raised immediately |
-| `${VAR}` in nested dict value | Substituted recursively |
-| Config with int port as string after env substitution | Coerced to int |
-| `allowed_users: []` (empty) | `ConfigError` — must be non-empty |
-| Permission rule with action not in (allow/deny/ask) | `ConfigError` at load time |
-| Argument value `light.*` (contains glob char) | `ValueError` — rejected by `validate_args` |
-| Entity ID `Light.Bedroom` (uppercase) | `ValueError` — fails HA_IDENTIFIER_RE |
-| Empty args dict for `ha_get_states` | Valid — signature is `ha_get_states` (no parens) |
-| Tool request for `ha_fire_event` matching deny default | `Decision.DENY` |
-| Deny and allow rule both match same signature | Deny wins |
-| No rules or defaults match | `Decision.ASK` (global fallback) |
-| `cleanup_stale_requests` with no expired entries | Returns empty list, no deletions |
-| Audit log query on empty database | Returns empty list |
-| Multiple `${VAR}` in single string | All substituted |
+| Scenario                                               | Expected Behavior                                |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `${VAR}` where VAR is unset                            | `ConfigError` raised immediately                 |
+| `${VAR}` in nested dict value                          | Substituted recursively                          |
+| Config with int port as string after env substitution  | Coerced to int                                   |
+| `allowed_users: []` (empty)                            | `ConfigError` — must be non-empty                |
+| Permission rule with action not in (allow/deny/ask)    | `ConfigError` at load time                       |
+| Argument value `light.*` (contains glob char)          | `ValueError` — rejected by `validate_args`       |
+| Entity ID `Light.Bedroom` (uppercase)                  | `ValueError` — fails HA_IDENTIFIER_RE            |
+| Empty args dict for `ha_get_states`                    | Valid — signature is `ha_get_states` (no parens) |
+| Tool request for `ha_fire_event` matching deny default | `Decision.DENY`                                  |
+| Deny and allow rule both match same signature          | Deny wins                                        |
+| No rules or defaults match                             | `Decision.ASK` (global fallback)                 |
+| `cleanup_stale_requests` with no expired entries       | Returns empty list, no deletions                 |
+| Audit log query on empty database                      | Returns empty list                               |
+| Multiple `${VAR}` in single string                     | All substituted                                  |
 
 ## Decision Log
 
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| config.py parses permissions into typed objects | Engine receives clean typed data; config.py is the single parsing boundary | 2026-02-08 |
-| Full Executor + ServiceHandler ABC in Spec 1 | Tests use mock ServiceHandler; Spec 2 just implements HomeAssistantService without changing executor | 2026-02-08 |
-| No-arg signatures omit parentheses (`ha_get_states` not `ha_get_states()`) | Matches architecture doc exactly; `ha_get_*` default pattern matches naturally | 2026-02-08 |
-| ISO 8601 strings in SQLite, float epoch in dataclasses | Human-readable DB; conversion at DB layer boundary; matches SQL schema in architecture doc | 2026-02-08 |
-| Deny always wins regardless of specificity | Security-first: `ha_call_service(lock.*)` deny blocks even if `ha_call_service(lock.front_door)` has an allow rule | Design phase |
-| Sorted-key fallback for unknown tool signatures | Deterministic signatures for extensibility without requiring explicit builders for every tool | Design phase |
+| Decision                                                                   | Rationale                                                                                                          | Date         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------ |
+| config.py parses permissions into typed objects                            | Engine receives clean typed data; config.py is the single parsing boundary                                         | 2026-02-08   |
+| Full Executor + ServiceHandler ABC in Spec 1                               | Tests use mock ServiceHandler; Spec 2 just implements HomeAssistantService without changing executor               | 2026-02-08   |
+| No-arg signatures omit parentheses (`ha_get_states` not `ha_get_states()`) | Matches architecture doc exactly; `ha_get_*` default pattern matches naturally                                     | 2026-02-08   |
+| ISO 8601 strings in SQLite, float epoch in dataclasses                     | Human-readable DB; conversion at DB layer boundary; matches SQL schema in architecture doc                         | 2026-02-08   |
+| Deny always wins regardless of specificity                                 | Security-first: `ha_call_service(lock.*)` deny blocks even if `ha_call_service(lock.front_door)` has an allow rule | Design phase |
+| Sorted-key fallback for unknown tool signatures                            | Deterministic signatures for extensibility without requiring explicit builders for every tool                      | Design phase |
 
 ## Open Questions
 

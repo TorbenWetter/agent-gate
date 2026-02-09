@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from agent_gate.config import ConfigError, ServiceConfig, ToolDefinition
+from agentpass.config import ConfigError, ServiceConfig, ToolDefinition
 
 
 class ToolRegistry:

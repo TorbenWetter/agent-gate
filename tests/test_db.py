@@ -1,4 +1,4 @@
-"""Tests for agent_gate.db — SQLite storage for audit log and pending requests."""
+"""Tests for agentpass.db — SQLite storage for audit log and pending requests."""
 
 import json
 import os
@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from agent_gate.db import Database
-from agent_gate.models import AuditEntry
+from agentpass.db import Database
+from agentpass.models import AuditEntry
 
 
 @pytest.fixture()

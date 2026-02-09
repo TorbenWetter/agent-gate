@@ -1,6 +1,6 @@
 """End-to-end integration tests — real WebSocket server with mocked services (T4).
 
-Uses real GatewayServer, PermissionEngine, Executor, Database, and AgentGateClient.
+Uses real GatewayServer, PermissionEngine, Executor, Database, and AgentPassClient.
 Only the messenger and HA service handler are mocked.
 """
 
@@ -17,26 +17,26 @@ from typing import Any
 import pytest
 import websockets.asyncio.server
 
-from agent_gate.client import AgentGateClient, AgentGateDenied
-from agent_gate.config import (
+from agentpass.client import AgentPassClient, AgentPassDenied
+from agentpass.config import (
     AuthConfig,
     PermissionRule,
     Permissions,
     ServiceConfig,
     load_tools_file,
 )
-from agent_gate.db import Database
-from agent_gate.engine import PermissionEngine
-from agent_gate.executor import ExecutionError, Executor
-from agent_gate.messenger.base import (
+from agentpass.db import Database
+from agentpass.engine import PermissionEngine
+from agentpass.executor import ExecutionError, Executor
+from agentpass.messenger.base import (
     ApprovalChoice,
     ApprovalRequest,
     ApprovalResult,
     MessengerAdapter,
 )
-from agent_gate.registry import build_registry
-from agent_gate.server import GatewayServer
-from agent_gate.services.base import ServiceHandler
+from agentpass.registry import build_registry
+from agentpass.server import GatewayServer
+from agentpass.services.base import ServiceHandler
 
 # ---------------------------------------------------------------------------
 # Mock services
@@ -199,20 +199,20 @@ class TestAutoAllowedRequest:
     async def test_auto_allowed_request(self, gateway_env):
         url, _messenger, _gateway, _db = gateway_env
 
-        async with AgentGateClient(url, TOKEN) as client:
+        async with AgentPassClient(url, TOKEN) as client:
             result = await client.tool_request("ha_get_state", entity_id="sensor.temp")
 
         assert result == {"entity_id": "sensor.temp", "state": "21.3"}
 
 
 class TestPolicyDeniedRequest:
-    """FR10-AC4: A policy-denied request raises AgentGateDenied with -32003."""
+    """FR10-AC4: A policy-denied request raises AgentPassDenied with -32003."""
 
     async def test_policy_denied_request(self, gateway_env):
         url, _messenger, _gateway, _db = gateway_env
 
-        async with AgentGateClient(url, TOKEN) as client:
-            with pytest.raises(AgentGateDenied) as exc_info:
+        async with AgentPassClient(url, TOKEN) as client:
+            with pytest.raises(AgentPassDenied) as exc_info:
                 await client.tool_request(
                     "ha_call_service",
                     domain="lock",
@@ -229,7 +229,7 @@ class TestAskApprovedRequest:
     async def test_ask_approved_request(self, gateway_env):
         url, messenger, _gateway, _db = gateway_env
 
-        async with AgentGateClient(url, TOKEN) as client:
+        async with AgentPassClient(url, TOKEN) as client:
 
             async def approve_after_delay():
                 await asyncio.sleep(0.2)
@@ -250,12 +250,12 @@ class TestAskApprovedRequest:
 
 
 class TestAskDeniedRequest:
-    """FR10-AC6: An ask-flow request denied by the human raises AgentGateDenied."""
+    """FR10-AC6: An ask-flow request denied by the human raises AgentPassDenied."""
 
     async def test_ask_denied_request(self, gateway_env):
         url, messenger, _gateway, _db = gateway_env
 
-        async with AgentGateClient(url, TOKEN) as client:
+        async with AgentPassClient(url, TOKEN) as client:
 
             async def deny_after_delay():
                 await asyncio.sleep(0.2)
@@ -263,7 +263,7 @@ class TestAskDeniedRequest:
                 await messenger.simulate_deny(messenger._last_request.request_id)
 
             deny_task = asyncio.create_task(deny_after_delay())
-            with pytest.raises(AgentGateDenied) as exc_info:
+            with pytest.raises(AgentPassDenied) as exc_info:
                 await client.tool_request(
                     "ha_call_service",
                     domain="light",
@@ -282,7 +282,7 @@ class TestOfflineRetrieval:
         url, messenger, _gateway, _db = gateway_env
 
         # Step 1: Client A connects and sends a tool_request that requires approval
-        client_a = AgentGateClient(url, TOKEN)
+        client_a = AgentPassClient(url, TOKEN)
         await client_a.connect()
 
         # Fire the tool_request in a background task (it will block waiting for approval)
@@ -319,7 +319,7 @@ class TestOfflineRetrieval:
         await asyncio.sleep(0.5)
 
         # Step 4: Client B connects and retrieves pending results
-        async with AgentGateClient(url, TOKEN) as client_b:
+        async with AgentPassClient(url, TOKEN) as client_b:
             results = await client_b.get_pending_results()
 
         # Verify the result is returned

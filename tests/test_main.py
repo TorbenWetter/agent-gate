@@ -1,4 +1,4 @@
-"""Tests for agent_gate.__main__ — CLI entrypoint and orchestration."""
+"""Tests for agentpass.__main__ — CLI entrypoint and orchestration."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class TestParseArgs:
 
     def test_defaults(self):
         """FR10-AC1: Default values for all flags."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args([])
         assert args.config == "config.yaml"
@@ -28,28 +28,28 @@ class TestParseArgs:
 
     def test_insecure_flag(self):
         """FR10-AC1: --insecure flag is recognized."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["--insecure"])
         assert args.insecure is True
 
     def test_custom_config_path(self):
         """FR10-AC1: --config PATH overrides the default."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["--config", "custom.yaml"])
         assert args.config == "custom.yaml"
 
     def test_custom_permissions_path(self):
         """FR10-AC1: --permissions PATH overrides the default."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["--permissions", "custom-perms.yaml"])
         assert args.permissions == "custom-perms.yaml"
 
     def test_all_flags_combined(self):
         """FR10-AC1: All flags together."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["--insecure", "--config", "c.yaml", "--permissions", "p.yaml"])
         assert args.insecure is True
@@ -108,7 +108,7 @@ def _make_ws_serve_cm():
 # ---------------------------------------------------------------------------
 
 # Common patch targets for run() tests
-_PATCH_PREFIX = "agent_gate.__main__"
+_PATCH_PREFIX = "agentpass.__main__"
 
 
 class TestRunTlsCheck:
@@ -117,7 +117,7 @@ class TestRunTlsCheck:
     @pytest.mark.asyncio
     async def test_no_tls_no_insecure_exits(self):
         """NFR1-AC1: Without TLS config and without --insecure, run() calls sys.exit(1)."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=False)
         mock_config = _make_mock_config(tls=None)
@@ -136,7 +136,7 @@ class TestRunTlsCheck:
     @pytest.mark.asyncio
     async def test_no_tls_with_insecure_proceeds(self):
         """NFR1-AC1: With --insecure, startup proceeds even without TLS."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -185,7 +185,7 @@ class TestRunStartupSequence:
         """FR10-AC2: Startup calls components in correct order:
         config -> db -> services -> health checks -> PTB start -> WS serve -> log ready.
         """
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -262,7 +262,7 @@ class TestRunStartupSequence:
     @pytest.mark.asyncio
     async def test_logs_ready_message(self, caplog):
         """FR10-AC2: Logs 'ready' when startup completes."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -294,7 +294,7 @@ class TestRunStartupSequence:
             patch(f"{_PATCH_PREFIX}.GatewayServer", return_value=mock_gateway),
             patch(f"{_PATCH_PREFIX}.websockets.asyncio.server.serve", return_value=mock_ws_cm),
             patch(f"{_PATCH_PREFIX}.asyncio.Event", return_value=mock_stop_event),
-            caplog.at_level(logging.INFO, logger="agent_gate"),
+            caplog.at_level(logging.INFO, logger="agentpass"),
         ):
             await run(args)
 
@@ -307,7 +307,7 @@ class TestRunHealthCheck:
     @pytest.mark.asyncio
     async def test_failed_health_check_logs_warning(self, caplog):
         """NFR3-AC1: Failed HA health check logs warning but does not prevent startup."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -339,7 +339,7 @@ class TestRunHealthCheck:
             patch(f"{_PATCH_PREFIX}.GatewayServer", return_value=mock_gateway),
             patch(f"{_PATCH_PREFIX}.websockets.asyncio.server.serve", return_value=mock_ws_cm),
             patch(f"{_PATCH_PREFIX}.asyncio.Event", return_value=mock_stop_event),
-            caplog.at_level(logging.WARNING, logger="agent_gate"),
+            caplog.at_level(logging.WARNING, logger="agentpass"),
         ):
             await run(args)
 
@@ -351,7 +351,7 @@ class TestRunHealthCheck:
     @pytest.mark.asyncio
     async def test_successful_health_check_no_warning(self, caplog):
         """NFR3-AC1: Successful HA health check does NOT log a warning."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -383,7 +383,7 @@ class TestRunHealthCheck:
             patch(f"{_PATCH_PREFIX}.GatewayServer", return_value=mock_gateway),
             patch(f"{_PATCH_PREFIX}.websockets.asyncio.server.serve", return_value=mock_ws_cm),
             patch(f"{_PATCH_PREFIX}.asyncio.Event", return_value=mock_stop_event),
-            caplog.at_level(logging.WARNING, logger="agent_gate"),
+            caplog.at_level(logging.WARNING, logger="agentpass"),
         ):
             await run(args)
 
@@ -397,7 +397,7 @@ class TestRunShutdownSequence:
     @pytest.mark.asyncio
     async def test_shutdown_resolves_pending_and_closes_all(self):
         """FR10-AC4: Shutdown resolves pending, stops telegram, stops PTB, closes HA, closes DB."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -447,7 +447,7 @@ class TestRunSignalHandling:
     @pytest.mark.asyncio
     async def test_signal_handlers_registered(self):
         """FR10-AC3: SIGTERM and SIGINT handlers are registered."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -501,7 +501,7 @@ class TestRunPtbLifecycle:
     @pytest.mark.asyncio
     async def test_ptb_manual_lifecycle(self):
         """FR10-AC5: PTB Application is used as async context manager with start/stop."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -555,7 +555,7 @@ class TestRunTlsContext:
     @pytest.mark.asyncio
     async def test_tls_ssl_context_built(self):
         """When config has TLS, an SSLContext is created and passed to websockets.serve."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=False)
         mock_tls = MagicMock()
@@ -617,7 +617,7 @@ class TestRunTokenNeverLogged:
     @pytest.mark.asyncio
     async def test_token_not_in_logs(self, caplog):
         """NFR1-AC2: The agent token does not appear in any log message."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -650,7 +650,7 @@ class TestRunTokenNeverLogged:
             patch(f"{_PATCH_PREFIX}.GatewayServer", return_value=mock_gateway),
             patch(f"{_PATCH_PREFIX}.websockets.asyncio.server.serve", return_value=mock_ws_cm),
             patch(f"{_PATCH_PREFIX}.asyncio.Event", return_value=mock_stop_event),
-            caplog.at_level(logging.DEBUG, logger="agent_gate"),
+            caplog.at_level(logging.DEBUG, logger="agentpass"),
         ):
             await run(args)
 
@@ -664,7 +664,7 @@ class TestRunGatewayServerWiring:
     @pytest.mark.asyncio
     async def test_gateway_server_creation(self):
         """GatewayServer is wired with engine, executor, messenger, db, etc."""
-        from agent_gate.__main__ import run
+        from agentpass.__main__ import run
 
         args = argparse.Namespace(config="c.yaml", permissions="p.yaml", insecure=True)
         mock_config = _make_mock_config(tls=None)
@@ -726,7 +726,7 @@ class TestMain:
 
     def test_config_error_exits_with_1(self):
         """main() catches ConfigError and exits with code 1."""
-        from agent_gate.__main__ import main
+        from agentpass.__main__ import main
 
         mock_args = argparse.Namespace(command="serve")
 
@@ -735,7 +735,7 @@ class TestMain:
             patch(f"{_PATCH_PREFIX}.asyncio.run") as mock_run,
             patch(f"{_PATCH_PREFIX}.sys") as mock_sys,
         ):
-            from agent_gate.config import ConfigError
+            from agentpass.config import ConfigError
 
             mock_run.side_effect = ConfigError("bad config")
             mock_sys.exit = MagicMock(side_effect=SystemExit(1))
@@ -756,7 +756,7 @@ class TestParseArgsSubcommands:
 
     def test_serve_subcommand_explicit(self):
         """Explicit 'serve' subcommand is recognized."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["serve", "--insecure"])
         assert args.command == "serve"
@@ -764,7 +764,7 @@ class TestParseArgsSubcommands:
 
     def test_no_subcommand_defaults_to_serve(self):
         """No subcommand defaults to 'serve'."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args([])
         assert args.command == "serve"
@@ -774,7 +774,7 @@ class TestParseArgsSubcommands:
 
     def test_no_subcommand_with_flags(self):
         """Flags without subcommand still route to 'serve'."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["--insecure"])
         assert args.command == "serve"
@@ -782,7 +782,7 @@ class TestParseArgsSubcommands:
 
     def test_request_subcommand(self):
         """'request' subcommand parses tool and args."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["request", "ha_get_state", "entity_id=sensor.temp"])
         assert args.command == "request"
@@ -791,7 +791,7 @@ class TestParseArgsSubcommands:
 
     def test_request_with_url_and_token(self):
         """'request' subcommand parses --url and --token."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(
             [
@@ -809,7 +809,7 @@ class TestParseArgsSubcommands:
 
     def test_tools_subcommand(self):
         """'tools' subcommand parses --url."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["tools", "--url", "wss://gw:8443"])
         assert args.command == "tools"
@@ -817,7 +817,7 @@ class TestParseArgsSubcommands:
 
     def test_pending_subcommand(self):
         """'pending' subcommand is recognized."""
-        from agent_gate.__main__ import parse_args
+        from agentpass.__main__ import parse_args
 
         args = parse_args(["pending"])
         assert args.command == "pending"

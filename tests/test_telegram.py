@@ -1,4 +1,4 @@
-"""Tests for agent_gate.messenger.telegram — TelegramAdapter."""
+"""Tests for agentpass.messenger.telegram — TelegramAdapter."""
 
 import asyncio
 import contextlib
@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_gate.config import TelegramConfig
-from agent_gate.messenger.base import (
+from agentpass.config import TelegramConfig
+from agentpass.messenger.base import (
     ApprovalChoice,
     ApprovalRequest,
     ApprovalResult,
@@ -39,8 +39,8 @@ def mock_app():
 def adapter(mock_app, telegram_config, tmp_path):
     """Build a TelegramAdapter with a fully mocked PTB Application."""
     with (
-        patch("agent_gate.messenger.telegram.Application") as mock_app_cls,
-        patch("agent_gate.messenger.telegram.PicklePersistence"),
+        patch("agentpass.messenger.telegram.Application") as mock_app_cls,
+        patch("agentpass.messenger.telegram.PicklePersistence"),
     ):
         mock_builder = MagicMock()
         mock_app_cls.builder.return_value = mock_builder
@@ -49,7 +49,7 @@ def adapter(mock_app, telegram_config, tmp_path):
         mock_builder.arbitrary_callback_data.return_value = mock_builder
         mock_builder.build.return_value = mock_app
 
-        from agent_gate.messenger.telegram import TelegramAdapter
+        from agentpass.messenger.telegram import TelegramAdapter
 
         adp = TelegramAdapter(telegram_config, persistence_path=str(tmp_path / "cb.pickle"))
 
@@ -483,8 +483,8 @@ class TestHandlerRegistrationOrder:
         from telegram.ext import InvalidCallbackData
 
         with (
-            patch("agent_gate.messenger.telegram.Application") as mock_app_cls,
-            patch("agent_gate.messenger.telegram.PicklePersistence"),
+            patch("agentpass.messenger.telegram.Application") as mock_app_cls,
+            patch("agentpass.messenger.telegram.PicklePersistence"),
         ):
             mock_builder = MagicMock()
             mock_app_cls.builder.return_value = mock_builder
@@ -493,7 +493,7 @@ class TestHandlerRegistrationOrder:
             mock_builder.arbitrary_callback_data.return_value = mock_builder
             mock_builder.build.return_value = mock_app
 
-            from agent_gate.messenger.telegram import TelegramAdapter
+            from agentpass.messenger.telegram import TelegramAdapter
 
             TelegramAdapter(
                 telegram_config,

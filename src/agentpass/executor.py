@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from agent_gate.services.base import ServiceHandler
+from agentpass.services.base import ServiceHandler
 
 if TYPE_CHECKING:
-    from agent_gate.registry import ToolRegistry
+    from agentpass.registry import ToolRegistry
 
 
 class ExecutionError(Exception):

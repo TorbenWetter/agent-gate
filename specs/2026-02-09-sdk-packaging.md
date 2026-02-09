@@ -4,30 +4,30 @@
 
 ## Overview
 
-The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) that agents use to connect to the gateway, Docker packaging for deployment, end-to-end integration tests covering the full allow/deny/ask flow through real WebSocket transport, and a comprehensive README.
+The final phase of agentpass v1. Ships a thin Python SDK (`AgentPassClient`) that agents use to connect to the gateway, Docker packaging for deployment, end-to-end integration tests covering the full allow/deny/ask flow through real WebSocket transport, and a comprehensive README.
 
 ## Requirements
 
 ### Functional Requirements
 
-- [ ] FR1: `AgentGateClient` connects to the gateway over WebSocket and authenticates via JSON-RPC `auth` method
+- [ ] FR1: `AgentPassClient` connects to the gateway over WebSocket and authenticates via JSON-RPC `auth` method
   - **Acceptance Criteria:**
   - [ ] FR1-AC1: Client sends `{"jsonrpc":"2.0","method":"auth","params":{"token":"..."},"id":"auth-1"}` as the first message after connecting
-  - [ ] FR1-AC2: Client raises `AgentGateError` if authentication fails (invalid token, timeout, or non-auth response)
+  - [ ] FR1-AC2: Client raises `AgentPassError` if authentication fails (invalid token, timeout, or non-auth response)
   - [ ] FR1-AC3: Client supports both `ws://` and `wss://` URLs
 
-- [ ] FR2: `AgentGateClient.tool_request()` sends a tool request and returns the result
+- [ ] FR2: `AgentPassClient.tool_request()` sends a tool request and returns the result
   - **Acceptance Criteria:**
   - [ ] FR2-AC1: `tool_request("ha_get_state", entity_id="sensor.temp")` sends properly formatted JSON-RPC with incrementing integer IDs
   - [ ] FR2-AC2: Returns the `result.data` dict on success
-  - [ ] FR2-AC3: Raises `AgentGateDenied` (code -32001 or -32003) when denied by user or policy
-  - [ ] FR2-AC4: Raises `AgentGateTimeout` (code -32002) when approval times out
-  - [ ] FR2-AC5: Raises `AgentGateError` for other error codes (-32700, -32600, -32601, -32004, -32005, -32006)
+  - [ ] FR2-AC3: Raises `AgentPassDenied` (code -32001 or -32003) when denied by user or policy
+  - [ ] FR2-AC4: Raises `AgentPassTimeout` (code -32002) when approval times out
+  - [ ] FR2-AC5: Raises `AgentPassError` for other error codes (-32700, -32600, -32601, -32004, -32005, -32006)
   - [ ] FR2-AC6: Multiple concurrent `tool_request()` calls resolve independently (pipelining)
 
-- [ ] FR3: `AgentGateClient` supports async context manager
+- [ ] FR3: `AgentPassClient` supports async context manager
   - **Acceptance Criteria:**
-  - [ ] FR3-AC1: `async with AgentGateClient(url, token) as gw:` connects and authenticates on enter
+  - [ ] FR3-AC1: `async with AgentPassClient(url, token) as gw:` connects and authenticates on enter
   - [ ] FR3-AC2: Disconnects cleanly on exit (cancels reader task, closes WebSocket)
   - [ ] FR3-AC3: Also usable without context manager via explicit `connect()` / `close()`
 
@@ -37,7 +37,7 @@ The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) th
   - [ ] FR4-AC2: Default is infinite retries; configurable via `max_retries` constructor param (None = infinite)
   - [ ] FR4-AC3: Re-authenticates after reconnecting
   - [ ] FR4-AC4: Automatically calls `get_pending_results` after re-authentication and resolves any pending futures from before disconnect
-  - [ ] FR4-AC5: Raises `AgentGateError("Connection lost")` after exhausting max_retries (when finite)
+  - [ ] FR4-AC5: Raises `AgentPassError("Connection lost")` after exhausting max_retries (when finite)
   - [ ] FR4-AC6: Explicit `close()` does not trigger reconnection
 
 - [ ] FR5: `get_pending_results()` retrieves results for requests resolved while disconnected
@@ -48,20 +48,20 @@ The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) th
 
 - [ ] FR6: Typed error hierarchy
   - **Acceptance Criteria:**
-  - [ ] FR6-AC1: `AgentGateError(code, message)` is the base exception with `.code` and `.message` attributes
-  - [ ] FR6-AC2: `AgentGateDenied` extends `AgentGateError` for denial codes (-32001, -32003)
-  - [ ] FR6-AC3: `AgentGateTimeout` extends `AgentGateError` for timeout code (-32002)
-  - [ ] FR6-AC4: `AgentGateConnectionError` extends `AgentGateError` for connection/auth failures
+  - [ ] FR6-AC1: `AgentPassError(code, message)` is the base exception with `.code` and `.message` attributes
+  - [ ] FR6-AC2: `AgentPassDenied` extends `AgentPassError` for denial codes (-32001, -32003)
+  - [ ] FR6-AC3: `AgentPassTimeout` extends `AgentPassError` for timeout code (-32002)
+  - [ ] FR6-AC4: `AgentPassConnectionError` extends `AgentPassError` for connection/auth failures
 
-- [ ] FR7: Public exports from `agent_gate` package
+- [ ] FR7: Public exports from `agentpass` package
   - **Acceptance Criteria:**
-  - [ ] FR7-AC1: `from agent_gate import AgentGateClient` works
-  - [ ] FR7-AC2: `from agent_gate import AgentGateError, AgentGateDenied, AgentGateTimeout, AgentGateConnectionError` works
+  - [ ] FR7-AC1: `from agentpass import AgentPassClient` works
+  - [ ] FR7-AC2: `from agentpass import AgentPassError, AgentPassDenied, AgentPassTimeout, AgentPassConnectionError` works
 
 - [ ] FR8: Dockerfile builds a working image
   - **Acceptance Criteria:**
-  - [ ] FR8-AC1: `docker build -t agent-gate .` succeeds with the `python:3.12-slim` base image
-  - [ ] FR8-AC2: Image runs `agent-gate` as the default command
+  - [ ] FR8-AC1: `docker build -t agentpass .` succeeds with the `python:3.12-slim` base image
+  - [ ] FR8-AC2: Image runs `agentpass` as the default command
   - [ ] FR8-AC3: `/app/data` is a declared volume for SQLite + PicklePersistence
   - [ ] FR8-AC4: Port 8443 is exposed
 
@@ -93,14 +93,14 @@ The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) th
 
 ### Non-Functional Requirements
 
-- [ ] NFR1: SDK has zero extra dependencies beyond what agent-gate already requires (websockets + stdlib)
+- [ ] NFR1: SDK has zero extra dependencies beyond what agentpass already requires (websockets + stdlib)
   - **Acceptance Criteria:**
   - [ ] NFR1-AC1: `client.py` imports only from `websockets`, `json`, `asyncio`, and stdlib modules
 
 - [ ] NFR2: Docker image is minimal
   - **Acceptance Criteria:**
   - [ ] NFR2-AC1: Based on `python:3.12-slim`
-  - [ ] NFR2-AC2: `.dockerignore` excludes tests, docs, .git, __pycache__, .env
+  - [ ] NFR2-AC2: `.dockerignore` excludes tests, docs, .git, **pycache**, .env
 
 - [ ] NFR3: All new code passes `ruff check` and `ruff format --check`
   - **Acceptance Criteria:**
@@ -111,17 +111,18 @@ The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) th
 
 ### User Flows
 
-1. **Agent developer integrating with agent-gate:**
-   ```python
-   from agent_gate import AgentGateClient, AgentGateDenied
+1. **Agent developer integrating with agentpass:**
 
-   async with AgentGateClient("wss://gateway:8443", token="secret") as gw:
+   ```python
+   from agentpass import AgentPassClient, AgentPassDenied
+
+   async with AgentPassClient("wss://gateway:8443", token="secret") as gw:
        temp = await gw.tool_request("ha_get_state", entity_id="sensor.temp")
        print(temp)  # {"entity_id": "sensor.temp", "state": "21.3", ...}
 
        try:
            await gw.tool_request("ha_call_service", domain="light", service="turn_on", entity_id="light.bedroom")
-       except AgentGateDenied:
+       except AgentPassDenied:
            print("Request was denied")
    ```
 
@@ -135,21 +136,21 @@ The final phase of agent-gate v1. Ships a thin Python SDK (`AgentGateClient`) th
 
 ### Edge Cases
 
-| Scenario | Expected Behavior |
-| --- | --- |
-| Gateway unreachable on connect | `AgentGateConnectionError` raised after backoff retries exhausted |
-| Auth token invalid | `AgentGateError(-32005, "Invalid token")` raised |
-| Gateway disconnects mid-request | Auto-reconnect, re-auth, retrieve pending results |
-| Multiple concurrent tool_request calls | Each resolves independently via request ID matching |
-| `close()` called during reconnect backoff | Stops reconnection, exits cleanly |
+| Scenario                                                | Expected Behavior                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Gateway unreachable on connect                          | `AgentPassConnectionError` raised after backoff retries exhausted      |
+| Auth token invalid                                      | `AgentPassError(-32005, "Invalid token")` raised                       |
+| Gateway disconnects mid-request                         | Auto-reconnect, re-auth, retrieve pending results                      |
+| Multiple concurrent tool_request calls                  | Each resolves independently via request ID matching                    |
+| `close()` called during reconnect backoff               | Stops reconnection, exits cleanly                                      |
 | `tool_request()` called while disconnected/reconnecting | Waits for reconnection, then sends; or raises if max_retries exhausted |
 
 ## Technical Design
 
 ### Affected Components
 
-- `src/agent_gate/client.py` — New: AgentGateClient, error classes, read loop, reconnection logic
-- `src/agent_gate/__init__.py` — Modified: add public exports (AgentGateClient, error classes)
+- `src/agentpass/client.py` — New: AgentPassClient, error classes, read loop, reconnection logic
+- `src/agentpass/__init__.py` — Modified: add public exports (AgentPassClient, error classes)
 - `Dockerfile` — New: multi-stage-free slim build
 - `.dockerignore` — New: exclude non-essential files
 - `docker-compose.yml` — New: service orchestration
@@ -164,7 +165,7 @@ No new data models. Client uses the existing JSON-RPC 2.0 protocol defined in Sp
 ### Client SDK Architecture
 
 ```
-AgentGateClient
+AgentPassClient
 ├── connect()           → websockets.connect() + _authenticate() + start _read_loop
 ├── tool_request()      → send JSON-RPC, create Future, await result
 ├── get_pending_results() → send JSON-RPC, resolve offline futures
@@ -185,11 +186,12 @@ AgentGateClient
 
 #### T1: Client SDK — Error Classes + Core Protocol (no reconnection)
 
-**Files:** `src/agent_gate/client.py`, `tests/test_client.py`
+**Files:** `src/agentpass/client.py`, `tests/test_client.py`
 
 **Scope:**
-- Error class hierarchy: `AgentGateError`, `AgentGateDenied`, `AgentGateTimeout`, `AgentGateConnectionError`
-- `AgentGateClient.__init__(url, token, max_retries=None)`
+
+- Error class hierarchy: `AgentPassError`, `AgentPassDenied`, `AgentPassTimeout`, `AgentPassConnectionError`
+- `AgentPassClient.__init__(url, token, max_retries=None)`
 - `connect()` — WebSocket connect + authenticate
 - `close()` — Cancel reader, close WebSocket
 - `__aenter__` / `__aexit__` — Context manager
@@ -200,6 +202,7 @@ AgentGateClient
 - `_next_id()` — Incrementing integer request IDs
 
 **Tests (unit, mocked WebSocket):**
+
 - Error class instantiation and inheritance
 - Successful connect + auth
 - Auth failure (wrong token, timeout)
@@ -217,11 +220,12 @@ AgentGateClient
 
 #### T2: Client SDK — Auto-Reconnection
 
-**Files:** `src/agent_gate/client.py`, `tests/test_client.py`
+**Files:** `src/agentpass/client.py`, `tests/test_client.py`
 
 **Depends on:** T1
 
 **Scope:**
+
 - `_reconnect()` — Exponential backoff: 1s, 2s, 4s... capped at 30s
 - Infinite retries by default, `max_retries` param
 - Re-authenticate after reconnecting
@@ -230,9 +234,10 @@ AgentGateClient
 - `tool_request()` during disconnected state waits for reconnect
 
 **Tests (unit, mocked WebSocket):**
+
 - Auto-reconnect on unexpected disconnect
 - Exponential backoff timing (1s, 2s, 4s, capped at 30s)
-- Max retries exhausted raises AgentGateConnectionError (when finite)
+- Max retries exhausted raises AgentPassConnectionError (when finite)
 - Infinite retries (default) keeps trying
 - Re-auth after reconnect
 - Pending results auto-fetched on reconnect
@@ -243,18 +248,20 @@ AgentGateClient
 
 #### T3: Public Exports + Docker
 
-**Files:** `src/agent_gate/__init__.py`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`
+**Files:** `src/agentpass/__init__.py`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`
 
 **Depends on:** T1
 
 **Scope:**
+
 - Update `__init__.py` with public exports
-- `Dockerfile`: python:3.12-slim, WORKDIR /app, install package, VOLUME /app/data, EXPOSE 8443, CMD agent-gate
-- `.dockerignore`: tests/, docs/, .git/, __pycache__/, *.pyc, .env, .pytest_cache/, .ruff_cache/
+- `Dockerfile`: python:3.12-slim, WORKDIR /app, install package, VOLUME /app/data, EXPOSE 8443, CMD agentpass
+- `.dockerignore`: tests/, docs/, .git/, **pycache**/, \*.pyc, .env, .pytest_cache/, .ruff_cache/
 - `docker-compose.yml`: volumes, env_file, ports, restart policy
 
 **Tests:**
-- FR7: import checks (test that `from agent_gate import AgentGateClient` works)
+
+- FR7: import checks (test that `from agentpass import AgentPassClient` works)
 - FR8/FR9: Dockerfile syntax validation (docker build --check if available, or just syntax review)
 
 **Acceptance criteria:** FR7, FR8, FR9, NFR2
@@ -266,12 +273,14 @@ AgentGateClient
 **Depends on:** T1, T2
 
 **Scope:**
+
 - End-to-end tests using real WebSocket server (in-process)
 - Mocked HA service (returns canned responses)
 - Mocked Telegram adapter (auto-approves/denies on demand)
 - Test flows: allow, deny, ask+approve, ask+deny, offline retrieval
 
 **Tests:**
+
 - Auto-allowed request through real WS
 - Policy-denied request through real WS
 - Ask + simulated human approval through real WS
@@ -287,6 +296,7 @@ AgentGateClient
 **Depends on:** T1, T3
 
 **Scope:**
+
 - Project overview + security model
 - Architecture diagram (text-based, from spec)
 - Quick start (install, configure, run)
@@ -307,6 +317,7 @@ T1 (Client core)  ──→  T2 (Reconnection)  ──→  T4 (Integration)
 ```
 
 **Parallel opportunities:**
+
 - Wave 1: T1
 - Wave 2: T2 + T3 (parallel)
 - Wave 3: T4 + T5 (parallel)
@@ -338,8 +349,8 @@ T1 (Client core)  ──→  T2 (Reconnection)  ──→  T4 (Integration)
 
 ### Import Tests (T3)
 
-- [ ] `from agent_gate import AgentGateClient` works
-- [ ] `from agent_gate import AgentGateError, AgentGateDenied, AgentGateTimeout, AgentGateConnectionError` works
+- [ ] `from agentpass import AgentPassClient` works
+- [ ] `from agentpass import AgentPassError, AgentPassDenied, AgentPassTimeout, AgentPassConnectionError` works
 
 ### Integration Tests (T4)
 
@@ -355,10 +366,10 @@ _None — all questions resolved during discovery._
 
 ## Decision Log
 
-| Decision | Rationale | Date |
-| --- | --- | --- |
-| Exponential backoff with infinite default | Agents on edge devices need resilience; callers can limit with max_retries | 2026-02-08 |
-| Zero extra dependencies for SDK | Same package, no dependency bloat; websockets + stdlib sufficient | 2026-02-08 |
-| Auto-fetch pending results on reconnect | Seamless experience — pending futures from before disconnect resolve automatically | 2026-02-08 |
-| Include README in Spec 3 | Project documentation makes sense alongside SDK and Docker packaging | 2026-02-08 |
-| Full e2e + offline retrieval for integration tests | Validates the complete security model and offline resilience end-to-end | 2026-02-08 |
+| Decision                                           | Rationale                                                                          | Date       |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
+| Exponential backoff with infinite default          | Agents on edge devices need resilience; callers can limit with max_retries         | 2026-02-08 |
+| Zero extra dependencies for SDK                    | Same package, no dependency bloat; websockets + stdlib sufficient                  | 2026-02-08 |
+| Auto-fetch pending results on reconnect            | Seamless experience — pending futures from before disconnect resolve automatically | 2026-02-08 |
+| Include README in Spec 3                           | Project documentation makes sense alongside SDK and Docker packaging               | 2026-02-08 |
+| Full e2e + offline retrieval for integration tests | Validates the complete security model and offline resilience end-to-end            | 2026-02-08 |

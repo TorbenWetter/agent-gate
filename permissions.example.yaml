@@ -1,4 +1,4 @@
-# agent-gate permission rules
+# agentpass permission rules
 # Copy to permissions.yaml and customize
 
 # Defaults are evaluated in order — put specific patterns before "*"

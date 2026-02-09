@@ -126,11 +126,11 @@ All modules depend on Spec 1 (models, config, engine, db, executor, services/bas
 
 ### Affected Components
 
-- `src/agent_gate/server.py` — **NEW** — WebSocket server, JSON-RPC parsing, auth flow, pending request management, rate limiting
-- `src/agent_gate/messenger/base.py` — **NEW** — MessengerAdapter ABC, ApprovalRequest/Choice/Result dataclasses
-- `src/agent_gate/messenger/telegram.py` — **NEW** — TelegramAdapter implementing MessengerAdapter with PTB v21
-- `src/agent_gate/services/homeassistant.py` — **NEW** — HomeAssistantService implementing ServiceHandler
-- `src/agent_gate/__main__.py` — **NEW** — CLI entrypoint, argparse, orchestration, signal handling, shutdown
+- `src/agentpass/server.py` — **NEW** — WebSocket server, JSON-RPC parsing, auth flow, pending request management, rate limiting
+- `src/agentpass/messenger/base.py` — **NEW** — MessengerAdapter ABC, ApprovalRequest/Choice/Result dataclasses
+- `src/agentpass/messenger/telegram.py` — **NEW** — TelegramAdapter implementing MessengerAdapter with PTB v21
+- `src/agentpass/services/homeassistant.py` — **NEW** — HomeAssistantService implementing ServiceHandler
+- `src/agentpass/__main__.py` — **NEW** — CLI entrypoint, argparse, orchestration, signal handling, shutdown
 
 ### Data Model
 
@@ -169,36 +169,36 @@ class ApprovalResult:
 
 **Error codes:**
 
-| Code   | Meaning                     |
-|--------|-----------------------------|
-| -32700 | Parse error (malformed JSON) |
+| Code   | Meaning                                      |
+| ------ | -------------------------------------------- |
+| -32700 | Parse error (malformed JSON)                 |
 | -32600 | Invalid request (missing fields, validation) |
-| -32601 | Method not found            |
-| -32001 | Approval denied by user     |
-| -32002 | Approval timed out          |
-| -32003 | Policy denied (no human)    |
-| -32004 | Action execution failed     |
-| -32005 | Not authenticated           |
-| -32006 | Rate limit exceeded         |
+| -32601 | Method not found                             |
+| -32001 | Approval denied by user                      |
+| -32002 | Approval timed out                           |
+| -32003 | Policy denied (no human)                     |
+| -32004 | Action execution failed                      |
+| -32005 | Not authenticated                            |
+| -32006 | Rate limit exceeded                          |
 
 **Methods:**
 
-| Method               | Direction        | Purpose |
-|----------------------|------------------|---------|
-| `auth`               | Agent → Gateway  | Authenticate with bearer token |
-| `tool_request`       | Agent → Gateway  | Request tool execution |
-| `get_pending_results`| Agent → Gateway  | Retrieve stored results after reconnect |
+| Method                | Direction       | Purpose                                 |
+| --------------------- | --------------- | --------------------------------------- |
+| `auth`                | Agent → Gateway | Authenticate with bearer token          |
+| `tool_request`        | Agent → Gateway | Request tool execution                  |
+| `get_pending_results` | Agent → Gateway | Retrieve stored results after reconnect |
 
 ### Dependencies (Spec 1 → Spec 2)
 
-| Spec 1 Module    | Used By (Spec 2)         | Purpose |
-|------------------|--------------------------|---------|
-| `config.py`      | `__main__.py`            | Load config + permissions |
-| `engine.py`      | `server.py`              | Evaluate tool requests |
-| `db.py`          | `server.py`, `__main__.py` | Audit log, pending requests |
-| `executor.py`    | `server.py`              | Execute allowed tools |
-| `models.py`      | All Spec 2 modules       | Shared data types |
-| `services/base.py` | `homeassistant.py`     | ServiceHandler ABC |
+| Spec 1 Module      | Used By (Spec 2)           | Purpose                     |
+| ------------------ | -------------------------- | --------------------------- |
+| `config.py`        | `__main__.py`              | Load config + permissions   |
+| `engine.py`        | `server.py`                | Evaluate tool requests      |
+| `db.py`            | `server.py`, `__main__.py` | Audit log, pending requests |
+| `executor.py`      | `server.py`                | Execute allowed tools       |
+| `models.py`        | All Spec 2 modules         | Shared data types           |
+| `services/base.py` | `homeassistant.py`         | ServiceHandler ABC          |
 
 ### Rate Limiter Design
 
@@ -239,28 +239,33 @@ pickle_path = storage_dir / "callback_data.pickle"
 ### Task Decomposition
 
 **T1: Messenger adapter base (messenger/base.py)**
+
 - Depends on: nothing
-- Files owned: `src/agent_gate/messenger/base.py`
+- Files owned: `src/agentpass/messenger/base.py`
 - Acceptance criteria: FR9-AC1, FR9-AC3
 
 **T2: Home Assistant client (services/homeassistant.py)**
+
 - Depends on: nothing (only services/base.py from Spec 1)
-- Files owned: `src/agent_gate/services/homeassistant.py`
+- Files owned: `src/agentpass/services/homeassistant.py`
 - Acceptance criteria: FR7-AC1, FR7-AC2, FR7-AC3, FR7-AC4, FR7-AC5
 
 **T3: Telegram adapter (messenger/telegram.py)**
+
 - Depends on: T1 (messenger/base.py)
-- Files owned: `src/agent_gate/messenger/telegram.py`
+- Files owned: `src/agentpass/messenger/telegram.py`
 - Acceptance criteria: FR5-AC1, FR5-AC2, FR5-AC3, FR5-AC4, FR5-AC5, FR6-AC1, FR6-AC2, FR6-AC3, FR6-AC4
 
 **T4: WebSocket server (server.py)**
+
 - Depends on: T1 (for messenger interaction types)
-- Files owned: `src/agent_gate/server.py`
+- Files owned: `src/agentpass/server.py`
 - Acceptance criteria: FR1-AC1, FR1-AC2, FR1-AC3, FR2-AC1, FR2-AC2, FR2-AC3, FR2-AC4, FR3-AC1, FR3-AC2, FR3-AC3, FR3-AC4, FR3-AC5, FR4-AC1, FR4-AC2, FR4-AC3, FR8-AC1, FR8-AC2, FR8-AC3, FR8-AC4, FR11-AC1, FR11-AC2
 
-**T5: CLI entrypoint (__main__.py)**
+**T5: CLI entrypoint (**main**.py)**
+
 - Depends on: T2, T3, T4 (all components must exist)
-- Files owned: `src/agent_gate/__main__.py`
+- Files owned: `src/agentpass/__main__.py`
 - Acceptance criteria: FR10-AC1, FR10-AC2, FR10-AC3, FR10-AC4, FR10-AC5, NFR1-AC1, NFR1-AC2, NFR3-AC1
 
 ### Dependency Graph
@@ -278,10 +283,12 @@ T1 and T2 are independent (parallel). T3 and T4 depend on T1. T5 depends on T2, 
 ### Unit Tests
 
 **test_messenger_base.py (T1):**
+
 - [ ] ApprovalRequest, ApprovalChoice, ApprovalResult dataclass construction
 - [ ] MessengerAdapter is abstract and cannot be instantiated
 
 **test_homeassistant.py (T2):**
+
 - [ ] ha_get_state maps to GET /api/states/{entity_id}
 - [ ] ha_get_states maps to GET /api/states
 - [ ] ha_call_service maps to POST /api/services/{domain}/{service} with correct body
@@ -294,6 +301,7 @@ T1 and T2 are independent (parallel). T3 and T4 depend on T1. T5 depends on T2, 
 - [ ] Session cleanup on close()
 
 **test_telegram.py (T3):**
+
 - [ ] send_approval formats message correctly with signature and buttons
 - [ ] Callback from allowed user triggers registered callback
 - [ ] Callback from non-allowed user is silently ignored
@@ -304,6 +312,7 @@ T1 and T2 are independent (parallel). T3 and T4 depend on T1. T5 depends on T2, 
 - [ ] PicklePersistence path derived from storage directory
 
 **test_server.py (T4) — Mock WebSocket layer:**
+
 - [ ] Auth with correct token succeeds
 - [ ] Auth with wrong token returns -32005 and closes
 - [ ] Auth timeout (>10s) returns -32005 and closes
@@ -320,12 +329,14 @@ T1 and T2 are independent (parallel). T3 and T4 depend on T1. T5 depends on T2, 
 - [ ] Second concurrent connection is rejected
 
 **test_server.py — Real WebSocket integration tests:**
+
 - [ ] Full auth handshake over real WebSocket connection
 - [ ] tool_request → allow → result over real WebSocket
 - [ ] tool_request → deny → error over real WebSocket
 - [ ] Malformed JSON over real WebSocket returns -32700
 
 **test_main.py (T5):**
+
 - [ ] argparse: --insecure, --config, --permissions flags parsed correctly
 - [ ] argparse: defaults are config.yaml and permissions.yaml
 - [ ] Startup sequence calls components in correct order
@@ -342,24 +353,24 @@ T1 and T2 are independent (parallel). T3 and T4 depend on T1. T5 depends on T2, 
 
 ## Edge Cases
 
-| Scenario | Expected Behavior |
-|----------|-------------------|
-| Agent sends auth with wrong token | -32005 error, connection closed |
-| Agent never sends auth | 10-second timeout, -32005 error, connection closed |
-| Agent sends tool_request before auth | -32005 error, connection closed |
-| Agent disconnects mid-approval | Approval continues; result stored in SQLite for retrieval |
-| Guardian approves after agent disconnected | Execute action, store result; agent retrieves via get_pending_results |
-| Two approvals race (callback + timeout) | asyncio.Lock ensures first wins; second is no-op |
-| Telegram edit fails (message too old) | Log warning, continue; never block resolution |
-| HA returns 401 (expired token) | -32004 error returned to agent |
-| HA unreachable on startup | Log warning, continue startup; calls will fail when attempted |
-| HA unreachable during tool execution | -32004 error returned to agent immediately (no retry) |
-| Agent floods with requests | 60/min limit → -32006; 10 pending limit → -32006 |
-| Gateway receives SIGTERM during approval | Resolve all pending as "gateway_shutdown", edit messages, shut down |
-| Stale Telegram callback button (from before restart) | InvalidCallbackData handled; answer callback with "expired" text |
-| Malformed JSON-RPC (missing jsonrpc field, wrong version) | -32600 error |
-| Agent sends unknown method | -32601 error |
-| Concurrent agent connection attempt | Reject with WebSocket close code |
+| Scenario                                                  | Expected Behavior                                                     |
+| --------------------------------------------------------- | --------------------------------------------------------------------- |
+| Agent sends auth with wrong token                         | -32005 error, connection closed                                       |
+| Agent never sends auth                                    | 10-second timeout, -32005 error, connection closed                    |
+| Agent sends tool_request before auth                      | -32005 error, connection closed                                       |
+| Agent disconnects mid-approval                            | Approval continues; result stored in SQLite for retrieval             |
+| Guardian approves after agent disconnected                | Execute action, store result; agent retrieves via get_pending_results |
+| Two approvals race (callback + timeout)                   | asyncio.Lock ensures first wins; second is no-op                      |
+| Telegram edit fails (message too old)                     | Log warning, continue; never block resolution                         |
+| HA returns 401 (expired token)                            | -32004 error returned to agent                                        |
+| HA unreachable on startup                                 | Log warning, continue startup; calls will fail when attempted         |
+| HA unreachable during tool execution                      | -32004 error returned to agent immediately (no retry)                 |
+| Agent floods with requests                                | 60/min limit → -32006; 10 pending limit → -32006                      |
+| Gateway receives SIGTERM during approval                  | Resolve all pending as "gateway_shutdown", edit messages, shut down   |
+| Stale Telegram callback button (from before restart)      | InvalidCallbackData handled; answer callback with "expired" text      |
+| Malformed JSON-RPC (missing jsonrpc field, wrong version) | -32600 error                                                          |
+| Agent sends unknown method                                | -32601 error                                                          |
+| Concurrent agent connection attempt                       | Reject with WebSocket close code                                      |
 
 ## Open Questions
 
@@ -367,16 +378,16 @@ _None — all questions resolved during discovery._
 
 ## Decision Log
 
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| Error + close on auth failure | Simpler state machine; forces clean reconnect | 2026-02-08 |
-| Best-effort Telegram edits on timeout | Keeps chat tidy when it works; fire-and-forget avoids blocking resolution | 2026-02-08 |
-| Pending approvals survive restart (SQLite) | Matches existing DB schema; agent can reconnect and retrieve results | 2026-02-08 |
-| No HA retry (fail immediately) | Simpler, no hidden latency; agent/SDK can implement retry logic | 2026-02-08 |
-| Both rate limits independent | 60/min prevents flooding even with all-allow; 10 pending limits Telegram spam | 2026-02-08 |
-| Store offline approval results in SQLite | Agent retrieves via get_pending_results; matches pending_requests.result column | 2026-02-08 |
-| Pickle path derived from storage path | One volume mount covers both SQLite and pickle; no extra config field | 2026-02-08 |
-| CLI: --insecure + --config + --permissions | Flexible deployment; reasonable defaults (config.yaml, permissions.yaml) | 2026-02-08 |
-| Concurrent tool_request processing | Each request gets own asyncio.Task; matches max_pending_approvals design | 2026-02-08 |
-| Telegram: unit test adapter + mock Bot | Full PTB mock coverage is brittle; test adapter logic, defer integration to Spec 3 | 2026-02-08 |
-| WS tests: both mock and real connections | Unit tests for logic speed, integration tests for protocol correctness | 2026-02-08 |
+| Decision                                   | Rationale                                                                          | Date       |
+| ------------------------------------------ | ---------------------------------------------------------------------------------- | ---------- |
+| Error + close on auth failure              | Simpler state machine; forces clean reconnect                                      | 2026-02-08 |
+| Best-effort Telegram edits on timeout      | Keeps chat tidy when it works; fire-and-forget avoids blocking resolution          | 2026-02-08 |
+| Pending approvals survive restart (SQLite) | Matches existing DB schema; agent can reconnect and retrieve results               | 2026-02-08 |
+| No HA retry (fail immediately)             | Simpler, no hidden latency; agent/SDK can implement retry logic                    | 2026-02-08 |
+| Both rate limits independent               | 60/min prevents flooding even with all-allow; 10 pending limits Telegram spam      | 2026-02-08 |
+| Store offline approval results in SQLite   | Agent retrieves via get_pending_results; matches pending_requests.result column    | 2026-02-08 |
+| Pickle path derived from storage path      | One volume mount covers both SQLite and pickle; no extra config field              | 2026-02-08 |
+| CLI: --insecure + --config + --permissions | Flexible deployment; reasonable defaults (config.yaml, permissions.yaml)           | 2026-02-08 |
+| Concurrent tool_request processing         | Each request gets own asyncio.Task; matches max_pending_approvals design           | 2026-02-08 |
+| Telegram: unit test adapter + mock Bot     | Full PTB mock coverage is brittle; test adapter logic, defer integration to Spec 3 | 2026-02-08 |
+| WS tests: both mock and real connections   | Unit tests for logic speed, integration tests for protocol correctness             | 2026-02-08 |

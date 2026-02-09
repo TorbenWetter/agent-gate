@@ -1,4 +1,4 @@
-"""Tests for agent_gate.server — WebSocket server, auth, dispatch, rate limiting."""
+"""Tests for agentpass.server — WebSocket server, auth, dispatch, rate limiting."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from agent_gate.config import RateLimitConfig
-from agent_gate.db import Database
-from agent_gate.engine import PermissionEngine
-from agent_gate.executor import ExecutionError, Executor
-from agent_gate.messenger.base import ApprovalResult, MessengerAdapter
-from agent_gate.models import Decision, PendingApproval, ToolRequest
-from agent_gate.server import (
+from agentpass.config import RateLimitConfig
+from agentpass.db import Database
+from agentpass.engine import PermissionEngine
+from agentpass.executor import ExecutionError, Executor
+from agentpass.messenger.base import ApprovalResult, MessengerAdapter
+from agentpass.models import Decision, PendingApproval, ToolRequest
+from agentpass.server import (
     APPROVAL_DENIED,
     APPROVAL_TIMEOUT,
     EXECUTION_FAILED,
@@ -221,7 +221,7 @@ class TestAuthentication:
         ws = MockWebSocket()
         # Don't enqueue anything — recv() will hang
 
-        with patch("agent_gate.server.AUTH_TIMEOUT", 0.05):
+        with patch("agentpass.server.AUTH_TIMEOUT", 0.05):
             await server.handle_connection(ws)
 
         resp = ws.last_response()
@@ -1143,8 +1143,8 @@ class TestAuditResolution:
 class TestListTools:
     async def test_list_tools_returns_tool_definitions(self):
         """list_tools method returns tool definitions from registry."""
-        from agent_gate.config import AuthConfig, ServiceConfig, load_tools_file
-        from agent_gate.registry import build_registry
+        from agentpass.config import AuthConfig, ServiceConfig, load_tools_file
+        from agentpass.registry import build_registry
 
         tools = load_tools_file("tools/homeassistant.yaml", "homeassistant")
         svc = ServiceConfig(
@@ -1189,8 +1189,8 @@ class TestListTools:
 
     async def test_list_tools_includes_service_name(self):
         """list_tools response includes the service name for each tool."""
-        from agent_gate.config import AuthConfig, ServiceConfig, load_tools_file
-        from agent_gate.registry import build_registry
+        from agentpass.config import AuthConfig, ServiceConfig, load_tools_file
+        from agentpass.registry import build_registry
 
         tools = load_tools_file("tools/homeassistant.yaml", "homeassistant")
         svc = ServiceConfig(

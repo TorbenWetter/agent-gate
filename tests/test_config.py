@@ -1,4 +1,4 @@
-"""Tests for agent_gate.config — YAML loading, env var substitution, validation."""
+"""Tests for agentpass.config — YAML loading, env var substitution, validation."""
 
 import os
 import shutil
@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     ConfigError,
     Permissions,
     load_config,

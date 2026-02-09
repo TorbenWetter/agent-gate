@@ -1,228 +1,279 @@
-# agent-gate
+# agentpass
 
 **An execution gateway for AI agents on untrusted devices.**
 
-Agents request. Policies decide. Humans approve. The gateway executes.
-
----
-
-## The Problem
-
-AI agents running on untrusted devices (Raspberry Pi, edge hardware) need access to personal services like Home Assistant, but:
-
-- The device has full shell access -- any credential stored on it can be extracted
-- Prompt injection from untrusted content can compromise the agent
-- Services like Home Assistant lack fine-grained permission scoping
-
-No existing solution combines **credential isolation**, **policy-based decisions**, and **human-in-the-loop approval** in a single gateway that also executes actions. Existing projects gate the decision but the agent still holds credentials and executes actions itself.
-
-## How It Works
-
-The gateway runs on a **trusted device** (home server, NAS, cloud). The agent runs on an **untrusted device** (Pi). The agent never sees service credentials.
-
-```
-Untrusted Device (Pi)              Trusted Device (Gateway)
-+--------------+                   +------------------------------+
-|              |                   |  agent-gate                  |
-|  AI Agent    |                   |  +------------------------+  |
-|  (any agent) |-- WebSocket ----> |  |  Permission Engine     |  |
-|              |                   |  |  deny > allow > ask    |  |
-|  Holds:      |                   |  +----------+-------------+  |
-|  - Agent     |                   |             |                 |
-|    token     |                   |  +----------v-------------+  |
-|  - LLM key   |                   |  |  Messenger Adapter     |  |
-|              |<-- result ------- |  |  (Telegram)            |  |
-|              |                   |  +----------+-------------+  |
-+--------------+                   |             |                 |
-                                   |  +----------v-------------+  |
-      User <-- Telegram ---------- |  |  Action Executor       |  |
-                                   |  |  (Home Assistant)      |  | -- credentials --> Services
-                                   |  +------------------------+  |
-                                   |                               |
-                                   |  Holds: HA token, bot token,  |
-                                   |  TLS cert, permission DB      |
-                                   +------------------------------+
-```
-
-### Security Model
-
-| Property                 | How                                                                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Credential isolation** | Service tokens (HA, Telegram bot) live only on the gateway. The agent device never sees them.                                          |
-| **Policy engine**        | Every request is matched against YAML permission rules using glob patterns. Deny always wins.                                          |
-| **Human-in-the-loop**    | Requests matching `ask` rules trigger a Telegram message with inline approve/deny buttons.                                             |
-| **Transport security**   | WSS (TLS) is required by default. Plaintext only with an explicit `--insecure` flag.                                                   |
-| **Input validation**     | Argument values are sanitized -- glob metacharacters, control characters, and malformed HA identifiers are rejected before processing. |
-| **Rate limiting**        | Max 10 pending approvals, max 60 auto-allowed requests per minute.                                                                     |
-
-Even if the agent device is fully compromised, it cannot: access service credentials, forge Telegram approval callbacks, bypass the permission engine, or execute actions directly on Home Assistant.
+Your agent asks, you approve, the gateway passes it through. Connect any HTTP API via YAML -- no Python code required. The agent never sees service credentials.
 
 ---
 
 ## Quick Start
 
-### Installation
+### Gateway (trusted device — e.g., a home server, NAS, Raspberry Pi)
+
+The gateway holds all service credentials, runs the permission engine, and talks to Telegram for human approvals. The agent never sees this configuration.
+
+**1. Install**
 
 ```bash
-pip install agent-gate
+pip install agentpass
 ```
 
-For development:
+**2. Configure**
 
-```bash
-git clone https://github.com/<user>/agent-gate.git
-cd agent-gate
-pip install -e ".[dev]"
-```
-
-### Configuration
-
-Copy the example files and fill in your values:
-
-```bash
-cp config.example.yaml config.yaml
-cp permissions.example.yaml permissions.yaml
-```
-
-Set the required environment variables (or replace `${...}` placeholders in `config.yaml`):
-
-```bash
-export AGENT_TOKEN="your-agent-bearer-token"
-export GUARDIAN_BOT_TOKEN="your-telegram-bot-token"
-export HA_TOKEN="your-home-assistant-long-lived-access-token"
-```
-
-### Running
-
-```bash
-# With TLS (production)
-agent-gate
-
-# Or via module
-python -m agent_gate
-
-# Development mode (no TLS required)
-agent-gate --insecure
-```
-
-The gateway listens on `wss://0.0.0.0:8443` by default (or `ws://` with `--insecure`).
-
----
-
-## SDK Usage (Python)
-
-The SDK ships as part of the same package. Agents integrate in a few lines:
-
-```python
-from agent_gate import AgentGateClient, AgentGateDenied, AgentGateTimeout
-
-async with AgentGateClient("wss://gateway:8443", token="your-agent-token") as gw:
-
-    # Auto-allowed by policy -- returns immediately
-    state = await gw.tool_request("ha_get_state", entity_id="sensor.living_room_temp")
-    print(state)  # {"entity_id": "sensor.living_room_temp", "state": "21.3", ...}
-
-    # Requires human approval -- blocks until approved/denied/timeout
-    result = await gw.tool_request(
-        "ha_call_service",
-        domain="light",
-        service="turn_on",
-        entity_id="light.bedroom",
-    )
-```
-
-### Error Handling
-
-```python
-from agent_gate import AgentGateClient, AgentGateDenied, AgentGateTimeout, AgentGateError
-
-async with AgentGateClient("wss://gateway:8443", token="...") as gw:
-    try:
-        await gw.tool_request(
-            "ha_call_service",
-            domain="lock",
-            service="lock",
-            entity_id="lock.front_door",
-        )
-    except AgentGateDenied as e:
-        print(f"Denied: {e.message}")  # Policy deny or user denied
-    except AgentGateTimeout as e:
-        print(f"Timed out: {e.message}")  # No response within approval timeout
-    except AgentGateError as e:
-        print(f"Error {e.code}: {e.message}")  # Other errors
-```
-
-### Retrieving Offline Results
-
-If the agent disconnects while approvals are pending, results are queued on the gateway. After reconnection, they are fetched automatically. You can also retrieve them manually:
-
-```python
-import json
-
-async with AgentGateClient("wss://gateway:8443", token="...") as gw:
-    results = await gw.get_pending_results()
-    for r in results:
-        # Each row has a "result" column that is a JSON-encoded string
-        result_data = json.loads(r["result"]) if isinstance(r["result"], str) else r["result"]
-        print(r["request_id"], result_data.get("status"), result_data.get("data"))
-```
-
-### Auto-Reconnection
-
-The client automatically reconnects with exponential backoff (1s to 30s) if the WebSocket connection drops. You can limit retry attempts:
-
-```python
-client = AgentGateClient("wss://gateway:8443", token="...", max_retries=5)
-```
-
----
-
-## Docker Deployment
-
-### Using Docker Compose
-
-```bash
-# Build and start
-docker compose up -d
-
-# View logs
-docker compose logs -f agent-gate
-
-# Stop
-docker compose down
-```
-
-The `docker-compose.yml` mounts four volumes:
-
-| Mount                                         | Purpose                                |
-| --------------------------------------------- | -------------------------------------- |
-| `./config.yaml:/app/config.yaml:ro`           | Gateway configuration (read-only)      |
-| `./permissions.yaml:/app/permissions.yaml:ro` | Permission rules (read-only)           |
-| `./data:/app/data`                            | SQLite database + Telegram persistence |
-| `./certs:/app/certs:ro`                       | TLS certificates (read-only)           |
-
-Secrets are passed via `.env` file (referenced by `env_file: .env` in the compose file):
+Create a Telegram bot via [@BotFather](https://t.me/botfather) and get your bot token. Then create a `.env` file:
 
 ```env
-AGENT_TOKEN=your-agent-bearer-token
+AGENT_TOKEN=any-secret-string-you-choose
 GUARDIAN_BOT_TOKEN=your-telegram-bot-token
 HA_TOKEN=your-home-assistant-long-lived-access-token
 ```
 
-### Using Docker Directly
+Create `config.yaml`:
+
+```yaml
+gateway:
+  host: "0.0.0.0"
+  port: 8443
+
+agent:
+  token: "${AGENT_TOKEN}"
+
+messenger:
+  type: "telegram"
+  telegram:
+    token: "${GUARDIAN_BOT_TOKEN}"
+    chat_id: -100123456789 # your Telegram group chat ID
+    allowed_users: [123456789] # Telegram user IDs who can approve
+
+services:
+  homeassistant:
+    url: "http://homeassistant.local:8123"
+    auth:
+      type: bearer
+      token: "${HA_TOKEN}"
+    health:
+      path: "/api/"
+    tools: "tools/homeassistant.yaml"
+
+storage:
+  type: "sqlite"
+  path: "./data/agentpass.db"
+```
+
+Create `permissions.yaml`:
+
+```yaml
+defaults:
+  - pattern: "ha_get_*"
+    action: allow
+  - pattern: "*"
+    action: ask
+
+rules:
+  - pattern: "ha_call_service(lock.*)"
+    action: deny
+```
+
+**3. Start the gateway**
 
 ```bash
-docker build -t agent-gate .
-docker run -d \
-  -p 8443:8443 \
-  -v $(pwd)/config.yaml:/app/config.yaml:ro \
-  -v $(pwd)/permissions.yaml:/app/permissions.yaml:ro \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/certs:/app/certs:ro \
-  --env-file .env \
-  --restart unless-stopped \
-  agent-gate
+# Development (no TLS)
+agentpass serve --insecure
+
+# Production (TLS required)
+agentpass serve
 ```
+
+### Agent device (untrusted — e.g., a laptop, cloud VM, Raspberry Pi running an AI agent)
+
+The agent device only needs the gateway URL and the agent token. It never sees service credentials, Telegram tokens, or permission rules.
+
+**1. Install**
+
+```bash
+pip install agentpass
+```
+
+**2. Send requests**
+
+```bash
+# Use wss:// in production, ws:// only if the gateway was started with --insecure
+
+# List available tools
+agentpass tools --url ws://gateway:8443 --token $AGENT_TOKEN
+
+# Auto-allowed -- returns immediately
+agentpass request ha_get_state entity_id=sensor.temp \
+  --url ws://gateway:8443 --token $AGENT_TOKEN
+
+# Requires approval -- check Telegram for the button
+agentpass request ha_call_service domain=light service=turn_on entity_id=light.bedroom \
+  --url ws://gateway:8443 --token $AGENT_TOKEN
+```
+
+Or use the Python SDK — see [Python SDK](#python-sdk) below.
+
+---
+
+## How It Works
+
+```
+Agent Device (untrusted)            Gateway (trusted)
++-----------------+                 +-------------------------------+
+|                 |                 |  agentpass                    |
+|  AI Agent       |                 |  +-------------------------+  |
+|  (any agent)    |-- WebSocket --> |  | Permission Engine       |  |
+|                 |                 |  | deny > allow > ask      |  |
+|  Holds:         |                 |  +-----------+-------------+  |
+|  - Agent token  |                 |              |                |
+|  - LLM key      |                 |  +-----------v-------------+  |
+|                 |<-- result ----- |  | Telegram Messenger      |  |
+|                 |                 |  | (human approval)        |  |
++-----------------+                 |  +-----------+-------------+  |
+                                    |              |                |
+      You <-- Telegram ------------ |  +-----------v-------------+  |
+                                    |  | Generic HTTP Executor   |  |
+                                    |  | (any service via YAML)  |  |
+                                    |  +-------------------------+  |
+                                    |                               |
+                                    |  Holds: service credentials,  |
+                                    |  bot token, TLS certs, DB     |
+                                    +-------------------------------+
+```
+
+### Security Model
+
+| Property                 | How                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| **Credential isolation** | Service tokens live only on the gateway. The agent device never sees them.         |
+| **Policy engine**        | Every request matches YAML permission rules using glob patterns. Deny always wins. |
+| **Human-in-the-loop**    | `ask` rules trigger a Telegram message with inline approve/deny buttons.           |
+| **Transport security**   | WSS (TLS) required by default. Plaintext only with explicit `--insecure`.          |
+| **Input validation**     | Glob metacharacters, control chars, and invalid identifiers are rejected.          |
+| **Rate limiting**        | Max 10 pending approvals, max 60 requests/minute (configurable).                   |
+
+---
+
+## CLI Reference
+
+```bash
+# Gateway (trusted device)
+agentpass serve [--insecure] [--config config.yaml] [--permissions permissions.yaml]
+
+# Agent device (untrusted)
+agentpass request <tool> [key=value ...] --url <ws-url> --token <token> [--timeout 900]
+agentpass tools --url <ws-url> --token <token>
+agentpass pending --url <ws-url> --token <token>
+```
+
+| Command   | Runs on      | Description                                               |
+| --------- | ------------ | --------------------------------------------------------- |
+| `serve`   | Gateway      | Start the gateway server (default if no subcommand given) |
+| `request` | Agent device | Send a one-shot tool request and print the JSON result    |
+| `tools`   | Agent device | List available tools with their arguments                 |
+| `pending` | Agent device | Retrieve results for requests resolved while offline      |
+
+**Exit codes:** 0 = success, 1 = denied, 2 = timeout, 3 = connection error, 4 = invalid args.
+
+**Environment variables:** `AGENTPASS_URL` and `AGENT_TOKEN` can replace `--url` and `--token`.
+
+---
+
+## Python SDK
+
+Use this on the **agent device** to integrate agentpass into your Python agent code.
+
+```python
+from agentpass import AgentPassClient, AgentPassDenied, AgentPassTimeout
+
+async with AgentPassClient("wss://gateway:8443", token="your-agent-token") as gw:
+
+    # Auto-allowed by policy -- returns immediately
+    state = await gw.tool_request("ha_get_state", entity_id="sensor.temp")
+
+    # Requires human approval -- blocks until approved/denied/timeout
+    try:
+        await gw.tool_request(
+            "ha_call_service",
+            domain="light", service="turn_on", entity_id="light.bedroom",
+        )
+    except AgentPassDenied as e:
+        print(f"Denied: {e.message}")
+    except AgentPassTimeout as e:
+        print(f"Timed out: {e.message}")
+
+    # List available tools
+    tools = await gw.list_tools()
+
+    # Retrieve offline results
+    results = await gw.get_pending_results()
+```
+
+Auto-reconnects with exponential backoff (1s to 30s). Limit retries with `max_retries=5`.
+
+---
+
+## Adding a Service (YAML Only)
+
+All service configuration happens on the **gateway**. Any HTTP API can be connected with just two files -- no Python code needed.
+
+### 1. Define tools in a YAML file
+
+Create `tools/my_api.yaml`:
+
+```yaml
+tools:
+  get_item:
+    description: "Fetch an item by ID"
+    signature: "{item_id}"
+    args:
+      item_id:
+        required: true
+        validate: "^[a-zA-Z0-9_-]+$"
+    request:
+      method: GET
+      path: "/api/items/{item_id}"
+
+  create_item:
+    description: "Create a new item"
+    signature: "{name}"
+    args:
+      name:
+        required: true
+    request:
+      method: POST
+      path: "/api/items"
+      body_exclude: []
+    response:
+      wrap: "result"
+```
+
+### 2. Add the service to config.yaml
+
+```yaml
+services:
+  my_api:
+    url: "https://api.example.com"
+    auth:
+      type: header
+      header_name: "X-API-Key"
+      token: "${MY_API_KEY}"
+    health:
+      path: "/health"
+    tools: "tools/my_api.yaml"
+```
+
+### 3. Add permission rules
+
+```yaml
+defaults:
+  - pattern: "get_*"
+    action: allow
+  - pattern: "create_*"
+    action: ask
+```
+
+That's it. Restart the gateway and the tools are available.
 
 ---
 
@@ -234,253 +285,209 @@ docker run -d \
 gateway:
   host: "0.0.0.0" # Bind address
   port: 8443 # Listen port
-  tls:
-    cert: "/path/to/cert.pem" # TLS certificate (required unless --insecure)
-    key: "/path/to/key.pem" # TLS private key
+  tls: # Omit for --insecure mode
+    cert: "/path/to/cert.pem"
+    key: "/path/to/key.pem"
 
 agent:
   token: "${AGENT_TOKEN}" # Bearer token for agent authentication
 
 messenger:
-  type: "telegram" # Messenger backend (only "telegram" in v1)
+  type: "telegram"
   telegram:
     token: "${GUARDIAN_BOT_TOKEN}" # Telegram Bot API token
-    chat_id: 123456789 # Chat ID for approval messages (negative for groups)
-    allowed_users: [123456789] # Telegram user IDs authorized to approve (required)
+    chat_id: -100123456789 # Chat ID (negative for groups)
+    allowed_users: [123456789] # User IDs authorized to approve
 
 services:
-  homeassistant:
-    url: "http://homeassistant.local:8123" # HA base URL
-    token: "${HA_TOKEN}" # HA long-lived access token
+  <service_name>:
+    url: "https://..." # Base URL
+    auth: # Authentication (see below)
+      type: bearer
+      token: "${TOKEN}"
+    handler: http # "http" (default) or "python"
+    handler_class: "" # For handler=python: "module.path:ClassName"
+    health: # Health check endpoint
+      method: GET
+      path: "/"
+      expect_status: 200
+    tools: "tools/my_api.yaml" # Path to tool definitions
+    errors: # Custom error mappings
+      - status: 401
+        message: "Auth failed: {body}"
+      - status: 404
+        message: "Not found: {body}"
 
 storage:
-  type: "sqlite" # Storage backend (only "sqlite" in v1)
-  path: "./data/agent-gate.db" # Database file path
+  type: "sqlite"
+  path: "./data/agentpass.db"
 
-approval_timeout: 900 # Seconds before pending approvals expire (default: 900 = 15 min)
-
+approval_timeout: 900 # Seconds before approvals expire (default: 900)
 rate_limit:
-  max_pending_approvals: 10 # Max simultaneous pending approvals (default: 10)
-  max_requests_per_minute: 60 # Max auto-allowed requests per minute (default: 60)
+  max_pending_approvals: 10
+  max_requests_per_minute: 60
 ```
 
-**Environment variable substitution:** Any string value containing `${VAR_NAME}` is replaced with the corresponding environment variable at load time. Missing variables cause a startup error.
+### Authentication Types
+
+| Type     | Fields                 | Header sent                     |
+| -------- | ---------------------- | ------------------------------- |
+| `bearer` | `token`                | `Authorization: Bearer <token>` |
+| `header` | `token`, `header_name` | `<header_name>: <token>`        |
+| `query`  | `token`, `query_param` | `?<query_param>=<token>`        |
+| `basic`  | `username`, `password` | `Authorization: Basic <base64>` |
+
+### Tool Definition YAML
+
+```yaml
+tools:
+  <tool_name>:
+    description: "Human-readable description"
+    signature: "{arg1}.{arg2}, {arg3}" # Template for permission matching
+    args:
+      <arg_name>:
+        required: true|false # Default: false
+        validate: "^regex$" # Optional validation pattern
+    request:
+      method: GET|POST|PUT|DELETE|PATCH
+      path: "/api/path/{arg_name}" # Path with {arg} interpolation
+      body_exclude: [arg1, arg2] # Args excluded from POST body
+    response:
+      wrap: "key_name" # Wrap response in {"key_name": data}
+```
+
+**Signature templates** control how permission patterns match. For example, with `signature: "{domain}.{service}, {entity_id}"`, calling `ha_call_service` with `domain=light, service=turn_on, entity_id=light.bedroom` produces the signature `ha_call_service(light.turn_on, light.bedroom)`, which is matched against permission rules using glob patterns.
 
 ### permissions.yaml
 
 ```yaml
-# Defaults are evaluated in order -- put specific patterns before "*"
-defaults:
+defaults: # Evaluated in order, first match wins
   - pattern: "ha_get_*"
     action: allow
-  - pattern: "ha_call_service*"
-    action: ask
   - pattern: "*"
     action: ask
 
-# Explicit rules -- deny always wins over allow/ask regardless of specificity
-rules:
-  - pattern: "ha_call_service(light.*)"
-    action: ask
-    description: "Light control requires approval"
-
+rules: # Checked before defaults; deny always wins
   - pattern: "ha_call_service(lock.*)"
     action: deny
     description: "Lock control is always denied"
-
-  - pattern: "ha_fire_event(*)"
-    action: deny
-    description: "Event firing is always denied"
 ```
 
-### Rule Precedence
+**Precedence:** deny rules > allow rules > ask rules > defaults (first match) > global fallback (ask)
 
-The permission engine evaluates in a strict priority order:
+Patterns use `fnmatch` glob syntax (`*` matches anything, `?` matches one character, `[seq]` matches character sets).
 
-1. **Deny rules** -- if any deny rule matches, the request is denied (deny always wins)
-2. **Allow rules** -- if any allow rule matches, the request is auto-allowed
-3. **Ask rules** -- if any ask rule matches, the request requires human approval
-4. **Defaults** -- evaluated in order; first matching pattern wins
-5. **Global fallback** -- if nothing matches, the action is `ask`
+### Python Plugin Services
 
-Patterns use `fnmatch` glob syntax. The pattern is matched against a **signature string** built from the tool name and arguments:
+For non-HTTP protocols, use `handler: python`:
 
-| Tool              | Signature format                                   | Example                                         |
-| ----------------- | -------------------------------------------------- | ----------------------------------------------- |
-| `ha_call_service` | `ha_call_service({domain}.{service}, {entity_id})` | `ha_call_service(light.turn_on, light.bedroom)` |
-| `ha_get_state`    | `ha_get_state({entity_id})`                        | `ha_get_state(sensor.living_room_temp)`         |
-| `ha_get_states`   | `ha_get_states`                                    | `ha_get_states`                                 |
-| `ha_fire_event`   | `ha_fire_event({event_type})`                      | `ha_fire_event(custom_event)`                   |
+```yaml
+services:
+  mqtt_broker:
+    url: "mqtt://broker.local"
+    auth:
+      type: bearer
+      token: "${MQTT_TOKEN}"
+    handler: python
+    handler_class: "my_plugin:MQTTService"
+    tools: "tools/mqtt.yaml"
+```
+
+The class must extend `ServiceHandler` and accept `(config, tools)`:
+
+```python
+from agentpass.config import ServiceConfig, ToolDefinition
+from agentpass.services.base import ServiceHandler
+
+class MQTTService(ServiceHandler):
+    def __init__(self, config: ServiceConfig, tools: list[ToolDefinition]):
+        ...
+    async def execute(self, tool_name: str, args: dict) -> dict:
+        ...
+    async def health_check(self) -> bool:
+        ...
+    async def close(self) -> None:
+        ...
+```
 
 ---
 
-## JSON-RPC Protocol Reference
+## JSON-RPC Protocol
 
-For non-Python agents, the gateway exposes a JSON-RPC 2.0 protocol over WebSocket. Any language with WebSocket support can integrate.
+For non-Python agents on the **agent device**, the gateway uses JSON-RPC 2.0 over WebSocket. Any language with WebSocket support can integrate.
 
-### 1. Authentication
-
-Authentication must be the first message, sent within 10 seconds of connecting.
+### Authentication (must be first message, within 10 seconds)
 
 ```json
-// Agent -> Gateway
 {
   "jsonrpc": "2.0",
   "method": "auth",
-  "params": {"token": "your-agent-token"},
-  "id": "auth-1"
-}
-
-// Gateway -> Agent (success)
-{
-  "jsonrpc": "2.0",
-  "result": {"status": "authenticated"},
-  "id": "auth-1"
-}
-
-// Gateway -> Agent (failure)
-{
-  "jsonrpc": "2.0",
-  "error": {"code": -32005, "message": "Not authenticated"},
+  "params": { "token": "..." },
   "id": "auth-1"
 }
 ```
 
-### 2. Tool Request
+### Tool Request
 
 ```json
-// Agent -> Gateway
 {
   "jsonrpc": "2.0",
   "method": "tool_request",
-  "params": {
-    "tool": "ha_call_service",
-    "args": {
-      "domain": "light",
-      "service": "turn_on",
-      "entity_id": "light.bedroom"
-    }
-  },
-  "id": "req-001"
-}
-
-// Gateway -> Agent (executed)
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "status": "executed",
-    "data": { }
-  },
-  "id": "req-001"
+  "params": { "tool": "ha_get_state", "args": { "entity_id": "sensor.temp" } },
+  "id": 1
 }
 ```
 
-For `ask` policy decisions, the response is deferred until the human approves or denies (or the approval times out). The WebSocket request stays open -- the agent should await the response.
-
-### 3. Get Pending Results
-
-After reconnecting, retrieve results for requests that were resolved while the agent was offline:
+### List Tools
 
 ```json
-// Agent -> Gateway
-{
-  "jsonrpc": "2.0",
-  "method": "get_pending_results",
-  "params": {},
-  "id": "reconn-1"
-}
+{ "jsonrpc": "2.0", "method": "list_tools", "params": {}, "id": 2 }
+```
 
-// Gateway -> Agent
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "results": [
-      {"request_id": "req-042", "result": "{\"status\":\"executed\",\"data\":{}}", "tool_name": "ha_call_service"},
-      {"request_id": "req-043", "result": "{\"status\":\"denied\",\"data\":null}", "tool_name": "ha_call_service"}
-    ]
-  },
-  "id": "reconn-1"
-}
+### Get Pending Results
+
+```json
+{ "jsonrpc": "2.0", "method": "get_pending_results", "params": {}, "id": 3 }
 ```
 
 ### Error Codes
 
-| Code     | Meaning                                                             |
-| -------- | ------------------------------------------------------------------- |
-| `-32700` | Parse error (malformed JSON)                                        |
-| `-32600` | Invalid request (missing fields, forbidden characters in arguments) |
-| `-32601` | Method not found                                                    |
-| `-32001` | Approval denied by user                                             |
-| `-32002` | Approval timed out                                                  |
-| `-32003` | Policy denied (no human involved)                                   |
-| `-32004` | Action execution failed (service error)                             |
-| `-32005` | Not authenticated                                                   |
-| `-32006` | Rate limit exceeded                                                 |
+| Code     | Meaning                                                |
+| -------- | ------------------------------------------------------ |
+| `-32700` | Parse error (malformed JSON)                           |
+| `-32600` | Invalid request (missing fields, forbidden characters) |
+| `-32601` | Method not found                                       |
+| `-32001` | Denied by user                                         |
+| `-32002` | Approval timed out                                     |
+| `-32003` | Policy denied                                          |
+| `-32004` | Execution failed                                       |
+| `-32005` | Not authenticated                                      |
+| `-32006` | Rate limit exceeded                                    |
 
-### Available Tools (v1)
+---
 
-| Tool              | Description           | Args                             |
-| ----------------- | --------------------- | -------------------------------- |
-| `ha_get_state`    | Get entity state      | `entity_id`                      |
-| `ha_get_states`   | Get all entity states | (none)                           |
-| `ha_call_service` | Call an HA service    | `domain`, `service`, `entity_id` |
-| `ha_fire_event`   | Fire an HA event      | `event_type`                     |
+## Docker
+
+Run the gateway in Docker on your **trusted device**:
+
+```bash
+docker compose up -d
+docker compose logs -f agentpass
+```
+
+Mounts: `config.yaml`, `permissions.yaml`, `tools/` (read-only), `data/` (read-write), `certs/` (read-only). Secrets via `.env` file.
 
 ---
 
 ## Development
 
-### Setup
-
 ```bash
-git clone https://github.com/<user>/agent-gate.git
-cd agent-gate
+git clone https://github.com/TorbenWetter/agentpass.git
+cd agentpass
 pip install -e ".[dev]"
-```
-
-### Running Tests
-
-```bash
-pytest
-pytest --cov=agent_gate          # with coverage
-pytest tests/test_engine.py -v   # single module
-```
-
-### Linting and Formatting
-
-```bash
-ruff check src/ tests/           # lint
-ruff format src/ tests/          # format
-```
-
-### Project Structure
-
-```
-agent-gate/
-├── src/agent_gate/           # Main package
-│   ├── __init__.py
-│   ├── __main__.py           # CLI entrypoint + orchestration
-│   ├── config.py             # YAML loading + env var substitution
-│   ├── models.py             # Dataclasses (Decision, ToolRequest, etc.)
-│   ├── engine.py             # Permission engine (fnmatch, signature builders)
-│   ├── executor.py           # Action dispatch (tool -> service mapping)
-│   ├── server.py             # WebSocket server + pending request mgmt
-│   ├── db.py                 # SQLite (audit_log, pending_requests)
-│   ├── client.py             # Agent SDK (AgentGateClient)
-│   ├── messenger/
-│   │   ├── base.py           # MessengerAdapter ABC
-│   │   └── telegram.py       # Telegram Guardian bot (PTB v21)
-│   └── services/
-│       ├── base.py           # ServiceHandler ABC
-│       └── homeassistant.py  # HA REST API client
-├── tests/                    # pytest tests
-├── docs/                     # Specification + architecture docs
-├── config.example.yaml
-├── permissions.example.yaml
-├── pyproject.toml
-├── Dockerfile
-├── docker-compose.yml
-└── LICENSE
+pytest                              # 377 tests
+ruff check src/ tests/              # lint
+ruff format src/ tests/             # format
 ```
 
 ---

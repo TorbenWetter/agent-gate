@@ -1,9 +1,31 @@
 [project]
-name = "agent-gate"
+name = "agentpass"
 version = "0.1.0"
 description = "An execution gateway for AI agents on untrusted devices"
+readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
+authors = [{ name = "Torben Wetter" }]
+keywords = [
+    "ai",
+    "agent",
+    "gateway",
+    "security",
+    "home-assistant",
+    "iot",
+    "approval",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+    "Topic :: Security",
+    "Framework :: AsyncIO",
+]
 dependencies = [
     "websockets>=14.0,<17.0",
     "python-telegram-bot[callback-data]>=21.0,<22.0",
@@ -11,6 +33,11 @@ dependencies = [
     "aiohttp>=3.10.0,<4.0",
     "pyyaml>=6.0,<7.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/TorbenWetter/agentpass"
+Repository = "https://github.com/TorbenWetter/agentpass"
+Issues = "https://github.com/TorbenWetter/agentpass/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -22,7 +49,7 @@ dev = [
 ]
 
 [project.scripts]
-agent-gate = "agent_gate.__main__:main"
+agentpass = "agentpass.__main__:main"
 
 [build-system]
 requires = ["setuptools>=75.0"]
@@ -42,15 +69,15 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
-    "E",     # pycodestyle errors
-    "W",     # pycodestyle warnings
-    "F",     # pyflakes
-    "I",     # isort
-    "UP",    # pyupgrade
-    "B",     # flake8-bugbear
-    "SIM",   # flake8-simplify
-    "RUF",   # ruff-specific
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["agent_gate"]
+known-first-party = ["agentpass"]

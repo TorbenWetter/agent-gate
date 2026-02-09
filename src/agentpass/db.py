@@ -11,7 +11,7 @@ from typing import Any
 
 import aiosqlite
 
-from agent_gate.models import AuditEntry
+from agentpass.models import AuditEntry
 
 _SCHEMA = """\
 CREATE TABLE IF NOT EXISTS audit_log (

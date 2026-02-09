@@ -1,4 +1,4 @@
-"""Tests for agent_gate.services.http — Generic HTTP service handler."""
+"""Tests for agentpass.services.http — Generic HTTP service handler."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
-from agent_gate.config import (
+from agentpass.config import (
     AuthConfig,
     ErrorMapping,
     HealthCheckConfig,
@@ -15,7 +15,7 @@ from agent_gate.config import (
     ToolDefinition,
     load_tools_file,
 )
-from agent_gate.services.http import GenericHTTPService, HTTPServiceError
+from agentpass.services.http import GenericHTTPService, HTTPServiceError
 
 # --- Test helpers ---
 
@@ -467,7 +467,7 @@ class TestGenericHTTPServiceMisc:
 
     async def test_body_no_exclude(self):
         """All args appear in body when no body_exclude is set."""
-        from agent_gate.config import RequestDefinition
+        from agentpass.config import RequestDefinition
 
         tool = ToolDefinition(
             name="test_tool",

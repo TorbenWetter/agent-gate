@@ -1,4 +1,4 @@
-"""Shared data models for agent-gate."""
+"""Shared data models for agentpass."""
 
 from __future__ import annotations
 

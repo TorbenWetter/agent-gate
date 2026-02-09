@@ -1,11 +1,11 @@
-"""Tests for agent_gate.executor — action dispatch routing."""
+"""Tests for agentpass.executor — action dispatch routing."""
 
 import pytest
 
-from agent_gate.config import AuthConfig, ServiceConfig, load_tools_file
-from agent_gate.executor import ExecutionError, Executor
-from agent_gate.registry import build_registry
-from agent_gate.services.base import ServiceHandler
+from agentpass.config import AuthConfig, ServiceConfig, load_tools_file
+from agentpass.executor import ExecutionError, Executor
+from agentpass.registry import build_registry
+from agentpass.services.base import ServiceHandler
 
 
 class MockServiceHandler(ServiceHandler):
@@ -122,7 +122,7 @@ class TestExecutorWithRegistry:
 
     async def test_unknown_tool_with_registry(self):
         """Unknown tool raises even with empty registry."""
-        from agent_gate.registry import ToolRegistry
+        from agentpass.registry import ToolRegistry
 
         registry = ToolRegistry({})
         handler = MockServiceHandler()
