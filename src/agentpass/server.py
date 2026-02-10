@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -216,15 +217,18 @@ class GatewayServer:
         # Build signature
         signature = build_signature(tool_name, args)
 
+        # Generate unique request ID (decoupled from client msg_id)
+        request_id = str(uuid.uuid4())
+
         # Create tool request
-        request = ToolRequest(id=str(msg_id), tool_name=tool_name, args=args, signature=signature)
+        request = ToolRequest(id=request_id, tool_name=tool_name, args=args, signature=signature)
 
         # Evaluate permission
         decision = self._engine.evaluate(tool_name, args)
 
         # Log audit (initial decision)
         audit = AuditEntry(
-            request_id=str(msg_id),
+            request_id=request_id,
             tool_name=tool_name,
             args=args,
             signature=signature,
@@ -263,7 +267,7 @@ class GatewayServer:
 
     async def _request_approval(self, websocket: Any, request: ToolRequest, msg_id: Any) -> None:
         """Send approval request to messenger and wait for response."""
-        request_id = str(msg_id)
+        request_id = request.id
 
         # Store in DB
         expires_at_epoch = time.time() + self._approval_timeout

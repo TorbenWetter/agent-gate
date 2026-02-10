@@ -310,14 +310,14 @@ class TestToolRequests:
         # Verify approval was sent to messenger
         messenger.send_approval.assert_called_once()
         call_args = messenger.send_approval.call_args
-        assert call_args[0][0].request_id == "ask-1"
+        request_id = call_args[0][0].request_id
 
         # Verify request is pending
-        assert "ask-1" in server._pending
+        assert request_id in server._pending
 
         # Resolve the approval
         approval_result = ApprovalResult(
-            request_id="ask-1",
+            request_id=request_id,
             action="allow",
             user_id="12345",
             timestamp=time.time(),
@@ -354,9 +354,13 @@ class TestToolRequests:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
+        # Get the server-generated request_id
+        call_args = messenger.send_approval.call_args
+        request_id = call_args[0][0].request_id
+
         # Deny the approval
         approval_result = ApprovalResult(
-            request_id="deny-1",
+            request_id=request_id,
             action="deny",
             user_id="12345",
             timestamp=time.time(),
@@ -388,9 +392,13 @@ class TestToolRequests:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
+        # Get the server-generated request_id
+        call_args = messenger.send_approval.call_args
+        request_id = call_args[0][0].request_id
+
         # Resolve with timeout (user_id="timeout")
         approval_result = ApprovalResult(
-            request_id="timeout-1",
+            request_id=request_id,
             action="deny",
             user_id="timeout",
             timestamp=time.time(),
@@ -640,7 +648,7 @@ class TestAuditLogging:
         audit_entry = db.log_audit.call_args[0][0]
         assert audit_entry.tool_name == "ha_get_state"
         assert audit_entry.decision == "allow"
-        assert audit_entry.request_id == "req-1"
+        assert audit_entry.request_id  # UUID, not msg_id
 
     async def test_deny_logged(self):
         """FR11-AC1: Deny decision is logged."""
@@ -934,8 +942,11 @@ class TestTimeoutScheduling:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
-        # Verify schedule_timeout was called
-        messenger.schedule_timeout.assert_called_once_with("st-1", 300, "msg-123")
+        # Verify schedule_timeout was called with server-generated request_id
+        messenger.schedule_timeout.assert_called_once()
+        call_args = messenger.schedule_timeout.call_args[0]
+        assert call_args[1] == 300  # timeout
+        assert call_args[2] == "msg-123"  # message_id
 
         # Clean up
         await server.resolve_all_pending("test_cleanup")
@@ -1039,9 +1050,12 @@ class TestAuditResolution:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
+        # Get server-generated request_id
+        request_id = messenger.send_approval.call_args[0][0].request_id
+
         # Resolve with allow
         approval_result = ApprovalResult(
-            request_id="audit-1",
+            request_id=request_id,
             action="allow",
             user_id="12345",
             timestamp=time.time(),
@@ -1056,7 +1070,7 @@ class TestAuditResolution:
         # Verify audit resolution was called
         db.update_audit_resolution.assert_called_once()
         call_kwargs = db.update_audit_resolution.call_args.kwargs
-        assert call_kwargs["request_id"] == "audit-1"
+        assert call_kwargs["request_id"] == request_id
         assert call_kwargs["resolution"] == "approved"
         assert call_kwargs["resolved_by"] == "12345"
 
@@ -1078,8 +1092,11 @@ class TestAuditResolution:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
+        # Get server-generated request_id
+        request_id = messenger.send_approval.call_args[0][0].request_id
+
         approval_result = ApprovalResult(
-            request_id="audit-2",
+            request_id=request_id,
             action="deny",
             user_id="67890",
             timestamp=time.time(),
@@ -1093,7 +1110,7 @@ class TestAuditResolution:
 
         db.update_audit_resolution.assert_called_once()
         call_kwargs = db.update_audit_resolution.call_args.kwargs
-        assert call_kwargs["request_id"] == "audit-2"
+        assert call_kwargs["request_id"] == request_id
         assert call_kwargs["resolution"] == "denied"
         assert call_kwargs["resolved_by"] == "67890"
 
@@ -1115,8 +1132,11 @@ class TestAuditResolution:
         task = asyncio.create_task(server.handle_connection(ws))
         await asyncio.sleep(0.2)
 
+        # Get server-generated request_id
+        request_id = messenger.send_approval.call_args[0][0].request_id
+
         approval_result = ApprovalResult(
-            request_id="audit-3",
+            request_id=request_id,
             action="deny",
             user_id="timeout",
             timestamp=time.time(),
@@ -1130,7 +1150,7 @@ class TestAuditResolution:
 
         db.update_audit_resolution.assert_called_once()
         call_kwargs = db.update_audit_resolution.call_args.kwargs
-        assert call_kwargs["request_id"] == "audit-3"
+        assert call_kwargs["request_id"] == request_id
         assert call_kwargs["resolution"] == "timed_out"
         assert call_kwargs["resolved_by"] == "timeout"
 

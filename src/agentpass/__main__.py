@@ -252,6 +252,7 @@ def main(argv: list[str] | None = None) -> None:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     args = parse_args(argv)
 
     if args.command == "serve":
