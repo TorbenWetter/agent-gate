@@ -5,7 +5,7 @@ tools:
     args:
       entity_id:
         required: true
-        validate: "^[a-z_][a-z0-9_]*(\\.[a-z0-9_]+)?$"
+        validate: "^[a-z][a-z0-9_]*\\.[a-z0-9][a-z0-9_]*$"
     request:
       method: GET
       path: "/api/states/{entity_id}"
@@ -32,12 +32,45 @@ tools:
     args:
       entity_id:
         required: true
-        validate: "^[a-z_][a-z0-9_]*(\\.[a-z0-9_]+)?$"
+        validate: "^[a-z][a-z0-9_]*\\.[a-z0-9][a-z0-9_]*$"
     request:
       method: GET
       path: "/api/history/period?filter_entity_id={entity_id}"
     response:
       wrap: "history"
+
+  ha_get_logbook:
+    description: "Get logbook entries for an entity (last 24h)"
+    signature: "{entity_id}"
+    args:
+      entity_id:
+        required: true
+        validate: "^[a-z][a-z0-9_]*\\.[a-z0-9][a-z0-9_]*$"
+    request:
+      method: GET
+      path: "/api/logbook?entity={entity_id}"
+    response:
+      wrap: "logbook"
+
+  ha_get_config:
+    description: "Get Home Assistant configuration"
+    request:
+      method: GET
+      path: "/api/config"
+    response:
+      wrap: "config"
+
+  ha_render_template:
+    description: "Render a Home Assistant template"
+    signature: "{template}"
+    args:
+      template:
+        required: true
+    request:
+      method: POST
+      path: "/api/template"
+    response:
+      wrap: "rendered"
 
   ha_call_service:
     description: "Call a Home Assistant service"
@@ -45,13 +78,13 @@ tools:
     args:
       domain:
         required: true
-        validate: "^[a-z_][a-z0-9_]*$"
+        validate: "^[a-z][a-z0-9_]*$"
       service:
         required: true
-        validate: "^[a-z_][a-z0-9_]*$"
+        validate: "^[a-z][a-z0-9_]*$"
       entity_id:
         required: false
-        validate: "^[a-z_][a-z0-9_]*(\\.[a-z0-9_]+)?$"
+        validate: "^[a-z][a-z0-9_]*\\.[a-z0-9][a-z0-9_]*$"
     request:
       method: POST
       path: "/api/services/{domain}/{service}"
@@ -65,7 +98,7 @@ tools:
     args:
       event_type:
         required: true
-        validate: "^[a-z_][a-z0-9_]*$"
+        validate: "^[a-z][a-z0-9_.]*$"
     request:
       method: POST
       path: "/api/events/{event_type}"
