@@ -9,7 +9,7 @@ metadata: {"openclaw":{"emoji":"🔐","os":["linux","darwin"],"requires":{"bins"
 
 Execute Home Assistant actions through a secure approval gateway. Read-only queries execute instantly. State-changing actions (turning lights on/off, calling services) are sent to a human guardian on Telegram for approval before execution.
 
-IMPORTANT: The `agentpass request` command is a BLOCKING command. For tools that need approval, it will wait up to 15 minutes for the guardian to respond on Telegram. Do NOT background this command — wait for it to complete. The command returns the actual execution result once approved, or an error if denied/timed out. Do NOT tell the user to "check Telegram" or "approve the request" — just wait silently for the command to finish and then report the result.
+IMPORTANT: The `agentpass request` command is a BLOCKING command. For tools that need approval, it will wait up to 15 minutes for the guardian to respond on Telegram. You MUST use `background: false` when executing `agentpass request` commands to prevent auto-backgrounding. The command returns the actual execution result once approved, or an error if denied/timed out. Do NOT tell the user to "check Telegram" or "approve the request" — just wait silently for the command to finish and then report the result.
 
 ## Commands
 
@@ -70,9 +70,12 @@ agentpass request ha_get_config
 
 ### Requires human approval (command blocks until resolved)
 
+These commands block until approved or denied. Always use `background: false` to prevent auto-backgrounding.
+
 **Call a Home Assistant service:**
 
 ```bash
+# exec with background: false
 agentpass request ha_call_service domain=light service=turn_on entity_id=light.living_room
 agentpass request ha_call_service domain=light service=turn_on entity_id=light.bedroom brightness=128 color_name=red
 agentpass request ha_call_service domain=switch service=toggle entity_id=switch.fan
@@ -84,6 +87,7 @@ The `domain` and `service` args are used for the URL path. All other args (entit
 **Render a Home Assistant template:**
 
 ```bash
+# exec with background: false
 agentpass request ha_render_template template="{{ states('sensor.temperature') }} degrees"
 ```
 
